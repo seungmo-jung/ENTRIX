@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<tps>
+
+<selectCsrTps><![CDATA[
+select B.stat_min, B.so_id, B.csr_id
+, nvl(sum(tps)/60,'0') avg_tps
+, case when count(B.stat_min)=60 then nvl(min(tps),'0') else '0' end min_tps
+, nvl(max(tps),'0') max_tps
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(B.stat_min,1,8) dt, substr(B.stat_min,9,2) hh
+from (
+  select regexp_replace(substr(csr_date,1,16),'[-: ]','') stat_min 
+  , host, port, count(csr_date) tps
+  from tb_csr_web where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s')) 
+  and csr_date>='%s' and csr_date<'%s'
+  group by host, port, csr_date
+) A right outer join %s B on B.stat_min=A.stat_min and B.host_id=A.host and B.csr_port=A.port
+group by B.stat_min, B.so_id, B.csr_id
+]]></selectCsrTps>
+<selectSoCsrTps><![CDATA[
+select stat_min, so_id
+, avg(avg_tps) avg_tps, min(min_tps) min_tps, max(max_tps) max_tps
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_csr_tps_min where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s')) 
+and stat_min>='%s' and stat_min<'%s'
+group by stat_min, so_id
+]]></selectSoCsrTps>
+
+<selectWebTps><![CDATA[
+select B.stat_min, B.so_id, B.host_name web_id
+, nvl(sum(tps)/60,'0') avg_tps
+, case when count(B.stat_min)=60 then nvl(min(tps),'0') else '0' end min_tps
+, nvl(max(tps),'0') max_tps
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(B.stat_min,1,8) dt, substr(B.stat_min,9,2) hh
+from (
+  select regexp_replace(substr(timestamp,1,16),'[-: ]','') stat_min 
+  , host, count(timestamp) tps
+  from tb_web where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s')) 
+  and timestamp>='%s' and timestamp<'%s'
+  group by host, timestamp
+) A right outer join %s B on B.stat_min=A.stat_min and B.host_name=A.host
+group by B.stat_min, B.so_id, B.host_name
+]]></selectWebTps>
+<selectSoWebTps><![CDATA[
+select stat_min, so_id
+, avg(avg_tps) avg_tps, min(min_tps) min_tps, max(max_tps) max_tps
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_web_tps_min where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s')) 
+and stat_min>='%s' and stat_min<'%s'
+group by stat_min, so_id
+]]></selectSoWebTps>
+
+
+</tps>

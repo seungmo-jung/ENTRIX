@@ -1,0 +1,390 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mysql>
+
+
+<!-- select route csr  -->
+<selectCsrRoute><![CDATA[
+select stat,csr_id,req,suc,fail,(suc/req)*100 from (
+	select concat(first(dt),first(hh)) stat,csr_id,sum(req_cnt) req,sum(success_cnt) suc,sum(fail_cnt) fail from 
+	est_csr_route_min where dt='%s' and hh='%s' group by csr_id) a
+]]></selectCsrRoute>
+<selectAppRoute><![CDATA[
+select stat,app_id,req,suc,fail,(suc/req)*100 from (
+	select concat(first(dt),first(hh)) stat,app_id,sum(req_cnt) req,sum(success_cnt) suc,sum(fail_cnt) fail from 
+	est_app_route_min where dt='%s' and hh='%s' group by app_id) a
+]]></selectAppRoute>
+<selectSoRoute><![CDATA[
+select stat,app_id,so_id,req,suc,fail,(suc/req)*100 from (
+	select concat(first(dt),first(hh)) stat,app_id,so_id,sum(req_cnt) req,sum(success_cnt) suc,sum(fail_cnt) fail from 
+	est_so_route_min where dt='%s' and hh='%s' group by app_id,so_id) a
+]]></selectSoRoute>
+<selectCssRoute><![CDATA[
+select stat,app_id,so_id,css_ip,req,suc,fail,(suc/req)*100 from (
+	select concat(first(dt),first(hh)) stat,app_id,so_id,css_ip,sum(req_cnt) req,sum(success_cnt) suc,sum(fail_cnt) fail from 
+	est_css_route_min where dt='%s' and hh='%s' group by app_id,so_id,css_ip) a
+]]></selectCssRoute>
+<!-- select status csr -->
+<selectCsrStatus><![CDATA[
+select stat,csr_id,req,suc,fail,(suc/req)*100 from (
+	select concat(first(dt),first(hh)) stat,csr_id,sum(req_cnt) req,sum(success_cnt) suc,sum(fail_cnt) fail from 
+	est_csr_status_min where dt='%s' and hh='%s' group by csr_id) a
+]]></selectCsrStatus>
+<selectAppStatus><![CDATA[
+select stat,app_id,req,suc,fail,(suc/req)*100 from (
+	select concat(first(dt),first(hh)) stat,app_id,sum(req_cnt) req,sum(success_cnt) suc,sum(fail_cnt) fail from 
+	est_app_status_min where dt='%s' and hh='%s' group by app_id) a
+]]></selectAppStatus>
+<selectSoStatus><![CDATA[
+select stat,app_id,so_id,req,suc,fail,(suc/req)*100 from (
+	select concat(first(dt),first(hh)) stat,app_id,so_id,sum(req_cnt) req,sum(success_cnt) suc,sum(fail_cnt) fail from 
+	est_so_status_min where dt='%s' and hh='%s' group by app_id,so_id) a
+]]></selectSoStatus>
+<selectCssStatus><![CDATA[
+select stat,app_id,so_id,css_ip,req,suc,fail,(suc/req)*100 from (
+	select concat(first(dt),first(hh)) stat,app_id,so_id,css_ip,sum(req_cnt) req,sum(success_cnt) suc,sum(fail_cnt) fail from 
+	est_css_status_min where dt='%s' and hh='%s' group by app_id,so_id,css_ip) a
+]]></selectCssStatus>
+<!-- select session csr  -->
+<selectAppSession><![CDATA[
+select concat(first(dt),first(hh)),app_id,avg(avg_session),min(min_session),max(max_session) 
+from est_app_session_min where dt='%s' and hh='%s' group by app_id
+]]></selectAppSession>
+<selectSoSession><![CDATA[
+select concat(first(dt),first(hh)),app_id,so_id,avg(avg_session),min(min_session),max(max_session) 
+from est_so_session_min where dt='%s' and hh='%s' group by app_id,so_id
+]]></selectSoSession>
+<selectCssSession><![CDATA[
+select concat(first(dt),first(hh)),app_id,so_id,css_ip,avg(avg_session),min(min_session),max(max_session) 
+from est_css_session_min where dt='%s' and hh='%s' group by app_id,so_id,css_ip
+]]></selectCssSession>
+
+<!-- select uvpv stat  -->
+<selectAppUvpv><![CDATA[
+select '%s', I.app_id, sum(nvl(uv,'0')) uv, sum(nvl(pv,'0')) pv
+from (
+  select U.app_id, U.cnt uv, P.cnt pv
+  from (
+    select app_id, count(*) cnt
+    from (
+      select distinct I.app_id app_id, stb_id
+      from tb_onoff O join tb_cssinfo I on I.css_ip=O.css_ip
+      where %s
+      and registered_date>='%s' and registered_date<'%s'
+      and motion='OFF'
+    ) A
+    group by app_id
+  ) U inner join (
+    select I.app_id app_id, count(*) cnt
+    from tb_onoff O join tb_cssinfo I on I.css_ip=O.css_ip
+    where %s
+    and registered_date>='%s' and registered_date<'%s'
+    and motion='OFF'
+    group by I.app_id
+  ) P on U.app_id=P.app_id
+) C right outer join (select app_id from tb_cssinfo where role_typ='CSS' group by app_id) I on I.app_id=C.app_id
+group by I.app_id
+]]></selectAppUvpv>
+<selectSoUvpv><![CDATA[
+select '%s', I.app_id, I.so_id, sum(nvl(uv,'0')) uv, sum(nvl(pv,'0')) pv
+from (
+  select U.app_id, U.so_id, U.cnt uv, P.cnt pv
+  from (
+    select app_id, so_id, count(*) cnt
+    from (
+      select distinct I.app_id app_id, I.so_id so_id
+      , stb_id
+      from tb_onoff O join tb_cssinfo I on I.css_ip=O.css_ip
+      where %s
+      and registered_date>='%s' and registered_date<'%s'
+      and motion='OFF'
+    ) A
+    group by app_id, so_id
+  ) U inner join (
+    select I.app_id app_id, I.so_id so_id
+    , count(*) cnt
+    from tb_onoff O join tb_cssinfo I on I.css_ip=O.css_ip
+    where %s
+    and registered_date>='%s' and registered_date<'%s'
+    and motion='OFF'
+    group by I.app_id, I.so_id
+  ) P on U.so_id=P.so_id
+) C right outer join (select app_id,so_id from tb_cssinfo where role_typ='CSS' group by app_id,so_id) I on I.app_id=C.app_id and I.so_id=C.so_id
+group by I.app_id, I.so_id
+]]></selectSoUvpv>
+<selectCssUvpv><![CDATA[
+select '%s', I.app_id, I.so_id, I.css_ip, sum(nvl(uv,'0')) uv, sum(nvl(pv,'0')) pv
+from (
+  select U.app_id, U.so_id, U.css_ip, U.cnt uv, P.cnt pv
+  from (
+    select app_id, so_id, css_ip, count(*) cnt
+    from (
+      select distinct I.app_id app_id, I.so_id so_id, O.css_ip
+      , stb_id
+      from tb_onoff O join tb_cssinfo I on I.css_ip=O.css_ip
+      where %s
+      and registered_date>='%s' and registered_date<'%s'
+      and motion='OFF'
+    ) A
+    group by app_id, so_id, css_ip
+  ) U inner join (
+    select I.app_id app_id, I.so_id so_id
+    , O.css_ip, count(*) cnt
+    from tb_onoff O join tb_cssinfo I on I.css_ip=O.css_ip
+    where %s
+    and registered_date>='%s' and registered_date<'%s'
+    and motion='OFF'
+    group by I.app_id, I.so_id, O.css_ip
+  ) P on U.css_ip=P.css_ip
+) C right outer join (select * from tb_cssinfo where role_typ='CSS') I on I.app_id=C.app_id and I.so_id=C.so_id and I.css_ip=C.css_ip
+group by I.app_id, I.so_id, I.css_ip
+]]></selectCssUvpv>
+<!-- select ccu stat  -->
+<selectAppCcu><![CDATA[ 
+select concat(first(dt),first(hh)),app_id,avg(avg_ccu),min(min_ccu),max(max_ccu)
+from est_app_ccu_min where dt='%s' and hh='%s' group by app_id
+]]></selectAppCcu>
+<selectSoCcu><![CDATA[
+select concat(first(dt),first(hh)),app_id,so_id,avg(avg_ccu),min(min_ccu),max(max_ccu) 
+from est_so_ccu_min where dt='%s' and hh='%s' group by app_id,so_id
+]]></selectSoCcu>
+<selectCssCcu><![CDATA[
+select concat(first(dt),first(hh)),app_id,so_id,css_ip,avg(avg_ccu),min(min_ccu),max(max_ccu) 
+from est_css_ccu_min where dt='%s' and hh='%s' group by app_id,so_id,css_ip
+]]></selectCssCcu>
+<!-- select usetime stat  -->
+<selectAppUsetime><![CDATA[
+select concat(first(dt),first(hh)),app_id,sum(total_cnt),sum(c10_sec),sum(c20_sec)
+,sum(c30_sec),sum(c40_sec),sum(c50_sec),sum(c60_sec),sum(other) from
+ est_app_usetime_min where dt='%s' and hh='%s' group by app_id
+]]></selectAppUsetime>
+<selectSoUsetime><![CDATA[
+select concat(first(dt),first(hh)),app_id,so_id,sum(total_cnt),sum(c10_sec),sum(c20_sec)
+,sum(c30_sec),sum(c40_sec),sum(c50_sec),sum(c60_sec),sum(other) from
+ est_so_usetime_min where dt='%s' and hh='%s' group by app_id,so_id
+]]></selectSoUsetime>
+<selectCssUsetime><![CDATA[
+select concat(first(dt),first(hh)),app_id,so_id,css_ip,sum(total_cnt),sum(c10_sec),sum(c20_sec)
+,sum(c30_sec),sum(c40_sec),sum(c50_sec),sum(c60_sec),sum(other) from
+ est_css_usetime_min where dt='%s' and hh='%s' group by app_id,so_id,css_ip
+]]></selectCssUsetime>
+<!-- select bandwidth stat  -->
+<selectAppBandwidth><![CDATA[
+select concat(first(dt),first(hh)),app_id,round(avg(avg_mbps),2),min(min_mbps),max(max_mbps)
+ from
+ est_css_bandwidth_min where dt='%s' and hh='%s' group by app_id
+]]></selectAppBandwidth>
+<selectSoBandwidth><![CDATA[
+select concat(first(dt),first(hh)),app_id,so_id,round(avg(avg_mbps),2),min(min_mbps),max(max_mbps)
+ from
+ est_css_bandwidth_min where dt='%s' and hh='%s' group by app_id,so_id
+]]></selectSoBandwidth>
+<selectCssBandwidth><![CDATA[
+select concat(first(dt),first(hh)),app_id,so_id,css_ip,round(avg(avg_mbps),2),min(min_mbps),max(max_mbps)
+ from
+ est_css_bandwidth_min where dt='%s' and hh='%s' group by app_id,so_id,css_ip
+]]></selectCssBandwidth>
+
+
+<!-- select sed  -->
+<selectAppSed><![CDATA[
+select stat,app_id,test,suc,fail,(suc/test)*100,low,co,vi,con from (
+	select concat(first(dt),first(hh)) stat,app_id,sum(test_cnt) test,sum(success_cnt) suc,
+	sum(fail_cnt) fail,sum(low_psnr) low,sum(no_codec) co,sum(no_video) vi,sum(connect_fail) con from 
+	est_app_sed_min where dt='%s' and hh='%s' group by app_id) a
+]]></selectAppSed>
+<selectSoSed><![CDATA[
+select stat,app_id,so_id,test,suc,fail,(suc/test)*100,low,co,vi,con from (
+	select concat(first(dt),first(hh)) stat,app_id,so_id,sum(test_cnt) test,sum(success_cnt) suc,
+	sum(fail_cnt) fail,sum(low_psnr) low,sum(no_codec) co,sum(no_video) vi,sum(connect_fail) con from 
+	est_so_sed_min where dt='%s' and hh='%s' group by app_id,so_id) a
+]]></selectSoSed>
+<selectCssSed><![CDATA[
+select stat,app_id,so_id,css_ip,test,suc,fail,(suc/test)*100,low,co,vi,con from (
+	select concat(first(dt),first(hh)) stat,app_id,so_id,css_ip,sum(test_cnt) test,sum(success_cnt) suc,
+	sum(fail_cnt) fail,sum(low_psnr) low,sum(no_codec) co,sum(no_video) vi,sum(connect_fail) con from 
+	est_css_sed_min where dt='%s' and hh='%s' group by app_id,so_id,css_ip) a
+]]></selectCssSed>
+
+<!-- select web  -->
+<selectAppWeb><![CDATA[
+select stat,app_id,req,suc,c200,c304,fail,(suc/req)*100,data from (
+	select concat(first(dt),first(hh)) stat,app_id,sum(req_cnt) req,sum(success_cnt) suc,sum(c200_cnt) c200,sum(c304_cnt) c304,sum(fail_cnt) fail, sum(data_size) data from 
+	est_app_web_min where dt='%s' and hh='%s' group by app_id) a
+]]></selectAppWeb>
+<selectSoWeb><![CDATA[
+select stat,app_id,so_id,req,suc,c200,c304,fail,(suc/req)*100,data from (
+	select concat(first(dt),first(hh)) stat,app_id,so_id,sum(req_cnt) req,sum(success_cnt) suc,sum(c200_cnt) c200,sum(c304_cnt) c304,sum(fail_cnt) fail, sum(data_size) data from 
+	est_so_web_min where dt='%s' and hh='%s' group by app_id,so_id) a
+]]></selectSoWeb>
+<selectCssWeb><![CDATA[
+select stat,app_id,so_id,css_ip,req,suc,c200,c304,fail,(suc/req)*100,data from (
+	select concat(first(dt),first(hh)) stat,app_id,so_id,css_ip,sum(req_cnt) req,sum(success_cnt) suc,sum(c200_cnt) c200,sum(c304_cnt) c304,sum(fail_cnt) fail, sum(data_size) data from 
+	est_css_web_min where dt='%s' and hh='%s' group by app_id,so_id,css_ip) a
+]]></selectCssWeb>
+
+<!-- select collectd  -->
+<selectCpu><![CDATA[
+select concat(first(dt),first(hh)),so_id,host_name,avg(avg_user),min(min_user),max(max_user),avg(avg_system)
+,min(min_system),max(max_system),avg(avg_idle),min(min_idle),max(max_idle) 
+from est_cpu_min where dt='%s' and hh='%s' group by so_id,host_name
+]]></selectCpu>
+<selectMem><![CDATA[
+select concat(first(dt),first(hh)),so_id,host_name,avg(avg_used),min(min_used),max(max_used) 
+from est_mem_min where dt='%s' and hh='%s' group by so_id,host_name
+]]></selectMem>
+<selectDisk><![CDATA[
+select concat(first(dt),first(hh)),so_id,host_name,mount,min(free),max(used) 
+from est_disk_min a where dt='%s' and hh='%s' group by so_id,host_name,mount
+]]></selectDisk>
+<selectNetwork><![CDATA[
+select concat(first(dt),first(hh)),so_id,network_id,port_no,avg(avg_rx_bps),min(min_rx_bps),max(max_rx_bps),avg(avg_tx_bps),min(min_tx_bps),max(max_tx_bps) 
+from est_network_min where dt='%s' and hh='%s' group by so_id,network_id,port_no
+]]></selectNetwork>
+<selectUplink><![CDATA[
+select concat(first(dt),first(hh)),so_id,network_id,avg(avg_rx_bps),min(min_rx_bps),max(max_rx_bps),avg(avg_tx_bps),min(min_tx_bps),max(max_tx_bps) 
+from est_uplink_min where dt='%s' and hh='%s' group by so_id,network_id
+]]></selectUplink>
+
+<!-- select usetime stat  -->
+<selectAppUsetimeH><![CDATA[
+INSERT INTO est_app_usetime_hour  
+SELECT stat_hour, app_id
+, ifnull(sum(c_1_10s),'0') c_1_10s, ifnull((sum(c_1_10s)*100/sum(total_cnt)),'0') s_1_10s, ifnull(sum(c_11_20s),'0') c_11_20s, ifnull((sum(c_11_20s)*100/sum(total_cnt)),'0') s_11_20s
+, ifnull(sum(c_21_30s),'0') c_21_30s, ifnull((sum(c_21_30s)*100/sum(total_cnt)),'0') s_21_30s, ifnull(sum(c_31_40s),'0') c_31_40s, ifnull((sum(c_31_40s)*100/sum(total_cnt)),'0') s_31_40s
+, ifnull(sum(c_41_50s),'0') c_41_50s, ifnull((sum(c_41_50s)*100/sum(total_cnt)),'0') S_41_50s, ifnull(sum(c_51_60s),'0') c_51_60s, ifnull((sum(c_51_60s)*100/sum(total_cnt)),'0') s_51_60s
+, ifnull(sum(c_1_2m),'0') c_1_2m, ifnull((sum(c_1_2m)*100/sum(total_cnt)),'0') s_1_2m, ifnull(sum(c_2_3m),'0') c_2_3m, ifnull((sum(c_2_3m)*100/sum(total_cnt)),'0') s_2_3m
+, ifnull(sum(c_3_4m),'0') c_3_4m, ifnull((sum(c_3_4m)*100/sum(total_cnt)),'0') s_3_4m, ifnull(sum(c_4_5m),'0') c_4_5m, ifnull((sum(c_4_5m)*100/sum(total_cnt)),'0') s_4_5m
+, ifnull(sum(c_5_6m),'0') c_3_4m, ifnull((sum(c_5_6m)*100/sum(total_cnt)),'0') s_5_6m, ifnull(sum(c_6_7m),'0') c_6_7m, ifnull((sum(c_6_7m)*100/sum(total_cnt)),'0') s_6_7m
+, ifnull(sum(c_7_8m),'0') c_7_8m, ifnull((sum(c_7_8m)*100/sum(total_cnt)),'0') s_7_8m, ifnull(sum(c_8_9m),'0') c_8_9m, ifnull((sum(c_8_9m)*100/sum(total_cnt)),'0') s_8_9m
+, ifnull(sum(c_9_10m),'0') c_9_10m, ifnull((sum(c_9_10m)*100/sum(total_cnt)),'0') s_9_10m, ifnull(sum(c_10_30m),'0') c_10_30m, ifnull((sum(c_10_30m)*100/sum(total_cnt)),'0') s_10_30m
+, ifnull(sum(c_30_60m),'0') c_30_60m, ifnull((sum(c_30_60m)*100/sum(total_cnt)),'0') s_30_60m, ifnull(sum(c_other),'0') c_other, ifnull((sum(c_other)*100/sum(total_cnt)),'0') s_other
+, ifnull(sum(total_cnt),'0') total_cnt
+, now() chg_date
+ FROM est_css_usetime_hour WHERE stat_hour='%s' GROUP BY stat_hour, app_id
+]]></selectAppUsetimeH>
+<selectSoUsetimeH><![CDATA[
+INSERT INTO est_so_usetime_hour  
+SELECT stat_hour, app_id, so_id
+, ifnull(sum(c_1_10s),'0') c_1_10s, ifnull((sum(c_1_10s)*100/sum(total_cnt)),'0') s_1_10s, ifnull(sum(c_11_20s),'0') c_11_20s, ifnull((sum(c_11_20s)*100/sum(total_cnt)),'0') s_11_20s
+, ifnull(sum(c_21_30s),'0') c_21_30s, ifnull((sum(c_21_30s)*100/sum(total_cnt)),'0') s_21_30s, ifnull(sum(c_31_40s),'0') c_31_40s, ifnull((sum(c_31_40s)*100/sum(total_cnt)),'0') s_31_40s
+, ifnull(sum(c_41_50s),'0') c_41_50s, ifnull((sum(c_41_50s)*100/sum(total_cnt)),'0') S_41_50s, ifnull(sum(c_51_60s),'0') c_51_60s, ifnull((sum(c_51_60s)*100/sum(total_cnt)),'0') s_51_60s
+, ifnull(sum(c_1_2m),'0') c_1_2m, ifnull((sum(c_1_2m)*100/sum(total_cnt)),'0') s_1_2m, ifnull(sum(c_2_3m),'0') c_2_3m, ifnull((sum(c_2_3m)*100/sum(total_cnt)),'0') s_2_3m
+, ifnull(sum(c_3_4m),'0') c_3_4m, ifnull((sum(c_3_4m)*100/sum(total_cnt)),'0') s_3_4m, ifnull(sum(c_4_5m),'0') c_4_5m, ifnull((sum(c_4_5m)*100/sum(total_cnt)),'0') s_4_5m
+, ifnull(sum(c_5_6m),'0') c_3_4m, ifnull((sum(c_5_6m)*100/sum(total_cnt)),'0') s_5_6m, ifnull(sum(c_6_7m),'0') c_6_7m, ifnull((sum(c_6_7m)*100/sum(total_cnt)),'0') s_6_7m
+, ifnull(sum(c_7_8m),'0') c_7_8m, ifnull((sum(c_7_8m)*100/sum(total_cnt)),'0') s_7_8m, ifnull(sum(c_8_9m),'0') c_8_9m, ifnull((sum(c_8_9m)*100/sum(total_cnt)),'0') s_8_9m
+, ifnull(sum(c_9_10m),'0') c_9_10m, ifnull((sum(c_9_10m)*100/sum(total_cnt)),'0') s_9_10m, ifnull(sum(c_10_30m),'0') c_10_30m, ifnull((sum(c_10_30m)*100/sum(total_cnt)),'0') s_10_30m
+, ifnull(sum(c_30_60m),'0') c_30_60m, ifnull((sum(c_30_60m)*100/sum(total_cnt)),'0') s_30_60m, ifnull(sum(c_other),'0') c_other, ifnull((sum(c_other)*100/sum(total_cnt)),'0') s_other
+, ifnull(sum(total_cnt),'0') total_cnt
+, now() chg_date
+ FROM est_css_usetime_hour WHERE stat_hour='%s' GROUP BY stat_hour, app_id,so_id
+]]></selectSoUsetimeH>
+<selectCssUsetimeH><![CDATA[
+select G.stat_hour, G.app_id, G.so_id, G.css_ip
+, nvl(sum(c_1_10s),'0') c_1_10s, nvl((sum(c_1_10s)*100/sum(total_cnt)),'0') s_1_10s, nvl(sum(c_11_20s),'0') c_11_20s, nvl((sum(c_11_20s)*100/sum(total_cnt)),'0') s_11_20s
+, nvl(sum(c_21_30s),'0') c_21_30s, nvl((sum(c_21_30s)*100/sum(total_cnt)),'0') s_21_30s, nvl(sum(c_31_40s),'0') c_31_40s, nvl((sum(c_31_40s)*100/sum(total_cnt)),'0') s_31_40s
+, nvl(sum(c_41_50s),'0') c_41_50s, nvl((sum(c_41_50s)*100/sum(total_cnt)),'0') S_41_50s, nvl(sum(c_51_60s),'0') c_51_60s, nvl((sum(c_51_60s)*100/sum(total_cnt)),'0') s_51_60s
+, nvl(sum(c_1_2m),'0') c_1_2m, nvl((sum(c_1_2m)*100/sum(total_cnt)),'0') s_1_2m, nvl(sum(c_2_3m),'0') c_2_3m, nvl((sum(c_2_3m)*100/sum(total_cnt)),'0') s_2_3m
+, nvl(sum(c_3_4m),'0') c_3_4m, nvl((sum(c_3_4m)*100/sum(total_cnt)),'0') s_3_4m, nvl(sum(c_4_5m),'0') c_4_5m, nvl((sum(c_4_5m)*100/sum(total_cnt)),'0') s_4_5m
+, nvl(sum(c_5_6m),'0') c_3_4m, nvl((sum(c_5_6m)*100/sum(total_cnt)),'0') s_5_6m, nvl(sum(c_6_7m),'0') c_6_7m, nvl((sum(c_6_7m)*100/sum(total_cnt)),'0') s_6_7m
+, nvl(sum(c_7_8m),'0') c_7_8m, nvl((sum(c_7_8m)*100/sum(total_cnt)),'0') s_7_8m, nvl(sum(c_8_9m),'0') c_8_9m, nvl((sum(c_8_9m)*100/sum(total_cnt)),'0') s_8_9m
+, nvl(sum(c_9_10m),'0') c_9_10m, nvl((sum(c_9_10m)*100/sum(total_cnt)),'0') s_9_10m, nvl(sum(c_10_30m),'0') c_10_30m, nvl((sum(c_10_30m)*100/sum(total_cnt)),'0') s_10_30m
+, nvl(sum(c_30_60m),'0') c_30_60m, nvl((sum(c_30_60m)*100/sum(total_cnt)),'0') s_30_60m, nvl(sum(c_other),'0') c_other, nvl((sum(c_other)*100/sum(total_cnt)),'0') s_other
+, nvl(sum(total_cnt),'0') total_cnt
+from (
+select stat_hour, app_id, so_id, css_ip
+, sum(use10) c_1_10s, sum(use20) c_11_20s, sum(use30) c_21_30s
+, sum(use40) c_31_40s, sum(use50) c_41_50s, sum(use60) c_51_60s
+, sum(c_1_2m) c_1_2m, sum(c_2_3m) c_2_3m, sum(c_3_4m) c_3_4m
+, sum(c_4_5m) c_4_5m, sum(c_5_6m) c_5_6m, sum(c_6_7m) c_6_7m
+, sum(c_7_8m) c_7_8m, sum(c_8_9m) c_8_9m, sum(c_9_10m) c_9_10m
+, sum(c_10_30m) c_10_30m, sum(c_30_60m) c_30_60m
+, sum(useother) c_other
+, sum(use10+use20+use30+use40+use50+use60+c_1_2m+c_2_3m+c_3_4m+c_4_5m
+     +c_5_6m+c_6_7m+c_7_8m+c_8_9m+c_9_10m+c_10_30m+c_30_60m+useother) total_cnt
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+from (
+        select regexp_replace(substr(registered_date,1,13),'[-: ]','') stat_hour
+        , nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id, T.css_ip
+        , case when usetime>60*60 then 1 else 0 end useother
+        , case when usetime>60*30 and usetime<=60*60 then 1 else 0 end c_30_60m
+        , case when usetime>60*10 and usetime<=60*30 then 1 else 0 end c_10_30m
+        , case when usetime>60*9 and usetime<=60*10 then 1 else 0 end c_9_10m
+        , case when usetime>60*8 and usetime<=60*9 then 1 else 0 end c_8_9m
+        , case when usetime>60*7 and usetime<=60*8 then 1 else 0 end c_7_8m
+        , case when usetime>60*6 and usetime<=60*7 then 1 else 0 end c_6_7m
+        , case when usetime>60*5 and usetime<=60*6 then 1 else 0 end c_5_6m
+        , case when usetime>60*4 and usetime<=60*5 then 1 else 0 end c_4_5m
+        , case when usetime>60*3 and usetime<=60*4 then 1 else 0 end c_3_4m
+        , case when usetime>60*2 and usetime<=60*3 then 1 else 0 end c_2_3m
+        , case when usetime>60 and usetime<=60*2 then 1 else 0 end c_1_2m
+        , case when usetime>50 and usetime<=60 then 1 else 0 end use60
+        , case when usetime>40 and usetime<=50 then 1 else 0 end use50
+        , case when usetime>30 and usetime<=40 then 1 else 0 end use40
+        , case when usetime>20 and usetime<=30 then 1 else 0 end use30
+        , case when usetime>10 and usetime<=20 then 1 else 0 end use20
+        , case when usetime>0 and usetime<=10 then 1 else 0 end use10
+        from (
+                select registered_date
+                , css_ip
+                , unix_timestamp(off_date,'yyyy-MM-dd HH:mm:ss')-unix_timestamp(registered_date,'yyyy-MM-dd HH:mm:ss') usetime
+                from tb_onoff
+                where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s') or (dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+                and registered_date>='%s' and registered_date<'%s'
+                and motion='OFF'
+        ) T left outer join tb_cssinfo I on I.css_ip=T.css_ip
+        where usetime>0
+) U
+group by stat_hour, app_id, so_id, css_ip
+) Q right outer join (select '%s' stat_hour, app_id, so_id, css_ip from tb_cssinfo where role_typ='CSS') G on 
+Q.stat_hour=G.stat_hour and Q.app_id=G.app_id and Q.so_id=G.so_id and Q.css_ip=G.css_ip
+group by G.stat_hour, G.app_id, G.so_id, G.css_ip
+]]></selectCssUsetimeH>
+
+
+<selectWebTps><![CDATA[
+select '%s' stat_hour, so_id, web_id, sum(tps)/3600 avg_tps, min(tps) min_tps, max(tps) max_tps
+from(
+  select B.so_id, B.host_name web_id, cast(nvl(count(A.host),'0') as bigint) tps 
+  from (select * from tb_web where dt='%s' and hh='%s' and timestamp>='%s' and timestamp<'%s') A 
+  right outer join tb_cssinfo B on A.host=B.host_name 
+  group by B.so_id,B.host_name,A.timestamp
+) C group by so_id, web_id
+]]></selectWebTps>
+<selectWebTps2><![CDATA[
+select concat(first(dt),first(hh)) stat_hour, so_id, web_id
+, avg(avg_tps) avg_tps, min(min_tps) min_tps, max(max_tps) max_tps 
+from est_web_tps_min where dt='%s' and hh='%s' 
+group by so_id, web_id
+]]></selectWebTps2>
+<selectSoWebTps><![CDATA[
+INSERT INTO est_so_webtps_hour 
+SELECT stat_hour, so_id
+, avg(avg_tps) avg_tps, min(min_tps) min_tps, max(max_tps) max_tps 
+, now() chg_date
+ FROM est_web_tps_hour WHERE stat_hour='%s' GROUP BY stat_hour, so_id
+]]></selectSoWebTps>
+<selectCsrTps><![CDATA[
+select '%s' stat_hour, so_id, csr_id, sum(tps)/3600 avg_tps, min(tps) min_tps, max(tps) max_tps
+from(
+  select B.so_id, B.csr_id csr_id, cast(nvl(count(A.host),'0') as bigint) tps 
+  from (select * from tb_csr_web where dt='%s' and hh='%s' and csr_date>='%s' and csr_date<'%s') A 
+  right outer join tb_csrinfo B on A.host=B.host_id and A.port=B.csr_port
+  group by B.so_id,B.csr_id,A.csr_date
+) C group by so_id, csr_id
+]]></selectCsrTps>
+<selectCsrTps2><![CDATA[
+select concat(first(dt),first(hh)) stat_hour, so_id, csr_id
+, avg(avg_tps) avg_tps, min(min_tps) min_tps, max(max_tps) max_tps 
+from est_csr_tps_min where dt='%s' and hh='%s' 
+group by so_id, csr_id
+]]></selectCsrTps2>
+<selectSoCsrTps><![CDATA[
+INSERT INTO est_so_csrtps_hour 
+SELECT stat_hour, so_id
+, avg(avg_tps) avg_tps, min(min_tps) min_tps, max(max_tps) max_tps 
+, now() chg_date
+ FROM est_csr_tps_hour WHERE stat_hour='%s' GROUP BY stat_hour, so_id
+]]></selectSoCsrTps>
+
+</mysql>

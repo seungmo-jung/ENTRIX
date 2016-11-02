@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<default>
+
+<selectCssInfo><![CDATA[
+select app_id, so_id, css_ip
+from tb_cssinfo
+]]></selectCssInfo>
+
+<selectDashboardAppSo>
+select concat(app_id,'_',so_id) app_so_id
+, app_id, so_id
+, sum(ccu) ccu, sum(uv) uv, sum(pv) pv, sum(session) session
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+from (
+	select app_id, so_id
+	, cast(avg_ccu as bigint) ccu, 0 uv, 0 pv, 0 session
+	, lead(stat_min,1) over (partition by app_id,so_id order by stat_min asc) lead_min
+	from est_so_ccu_min
+	where (dt='%s' and hh='%s') or (dt='%s' and hh='%s')
+	union all
+	select app_id, so_id
+	, 0 ccu, uv, pv, 0 session
+	, lead(stat_min,1) over (partition by app_id,so_id order by stat_min asc) lead_min
+	from est_so_uvpv_min
+	where (dt='%s' and hh='%s') or (dt='%s' and hh='%s')
+	union all
+	select app_id, so_id
+	, 0 ccu, 0 uv, 0 pv, cast(avg_session as bigint) session
+	, lead(stat_min,1) over (partition by app_id,so_id order by stat_min asc) lead_min
+	from est_so_session_min
+	where (dt='%s' and hh='%s') or (dt='%s' and hh='%s')
+) U
+where lead_min is null
+group by app_id, so_id
+</selectDashboardAppSo>
+
+<selectDashboardAppSo2>
+select concat(app_id,'_',so_id) app_so_id
+, app_id, so_id
+, sum(ccu) ccu, sum(uv) uv, sum(pv) pv, sum(traffic) traffic
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+from (
+	select app_id, so_id
+	, cast(max_ccu as bigint) ccu, 0 uv, 0 pv, 0 traffic
+	from est_so_ccu_min
+	where dt='%s' and hh='%s' and stat_min='%s'
+	union all
+	select app_id, so_id
+	, 0 ccu, uv, pv, 0 traffic
+	from est_so_uvpv_min
+	where dt='%s' and hh='%s' and stat_min='%s'
+	union all
+	select app_id, so_id
+	, 0 ccu, 0 uv, 0 pv, cast(max_mbps as bigint) traffic
+	from est_so_bandwidth_min
+	where dt='%s' and hh='%s' and stat_min='%s'
+) U
+group by app_id, so_id
+</selectDashboardAppSo2>
+
+<selectDashboardAppSo3>
+select concat(app_id,'_',so_id) app_so_id
+, app_id, so_id
+, sum(ccu) ccu, sum(uv) uv, sum(pv) pv, sum(mbps) traffic
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+from (
+	select app_id, so_id
+	, cast(ccu as bigint) ccu, 0 uv, 0 pv, 0 mbps 
+	from est_so_dashboard_ccu_min   
+	union all
+	select app_id, so_id, 0 ccu, uv, pv, mbps 
+	from est_so_dashboard_uvpv_band_min  
+) U
+group by app_id, so_id
+</selectDashboardAppSo3>
+
+<aggregateCssInfo>
+select ifnull(concat('',H.id), '999') app_id
+, concat('',H.code) so_id
+, concat('',H.host_idx) host_id
+, H.nm host_name, I.ip css_ip, I.role_typ
+from (
+    select A.id, S.code, H.host_idx, H.nm
+    from er_host H
+    inner join er_host_group G on G.host_grp_idx=H.host_grp_idx
+    inner join es_so S on S.so_idx=G.so_idx
+    left outer join es_app A on A.app_idx=H.app_idx
+) H
+join (
+    select distinct I.ip, P.host_idx, H.role_typ
+    from er_ip I inner join er_host_port P on P.ip_idx=I.ip_idx
+    inner join er_host H on H.host_idx=P.host_idx and H.use_yn='1'
+) I on I.host_idx=H.host_idx
+</aggregateCssInfo>
+
+<aggregateNetInfo>
+select concat('',S.code) so_id
+, concat('',W.swt_idx) switch_id, W.nm switch_name
+, concat('',P.port_index) port_id, P.port_typ port_type
+from er_switch_port P
+inner join er_switch W on W.swt_idx=P.swt_idx
+inner join er_switch_group G on G.swt_grp_idx=W.swt_grp_idx
+inner join es_so S on S.so_idx=G.so_idx
+</aggregateNetInfo>
+<aggregateNetInfo_org>
+select concat('',S.code) so_id
+, concat('',H.host_idx) host_id, H.nm host_name
+, concat('',W.swt_idx) switch_id, W.nm switch_name
+, concat('',P.port_index) port_id, P.port_typ port_type
+from er_switch_port P
+inner join er_switch W on W.swt_idx=P.swt_idx
+inner join er_host H on H.host_idx=P.host_idx
+inner join er_host_group G on G.host_grp_idx=H.host_grp_idx
+inner join es_so S on S.so_idx=G.so_idx
+</aggregateNetInfo_org>
+
+<aggregateCsrInfo>
+select B.code so_id, B.nm host_name, A.csr_port, A.csr_id 
+from (select distinct csr_id, host_idx, csr_port from er_host_app_csr where csr_use_yn='Y') A 
+join    
+(select S.code, H.host_idx, H.nm
+from er_host H
+inner join er_host_group G on G.host_grp_idx=H.host_grp_idx
+inner join es_so S on S.so_idx=G.so_idx) B on A.host_idx=B.host_idx
+</aggregateCsrInfo>
+
+</default>

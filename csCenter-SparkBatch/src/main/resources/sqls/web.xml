@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<web>
+
+<selectWebCss><![CDATA[
+select
+  stat_min,
+  nvl(I.app_id,'999') AS app_id,
+  nvl(I.so_id,'999') AS so_id,
+  T.ip AS css_ip, -- T.clientip,
+  COUNT(*) AS req_cnt,
+  COUNT(CASE WHEN T.ret_code = '200' OR T.ret_code = '304' THEN 1 END) AS success_cnt,
+  COUNT(CASE T.ret_code WHEN '200' THEN 1 END) AS c200_cnt,
+  COUNT(CASE T.ret_code WHEN '304' THEN 1 END) AS c304_cnt,
+  COUNT(CASE WHEN T.ret_code != '200' and T.ret_code !='304' THEN 1 END) AS fail_cnt,
+  COUNT(CASE WHEN T.ret_code = '200' OR T.ret_code = '304' THEN 1 END)*100.0/COUNT(*) AS success_rate,
+  SUM(T.bytes) AS data_size,
+  concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date,
+  substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from ( select regexp_replace(substr(timestamp,1,16),'[-: ]','') stat_min, ip, ret_code, bytes
+	  from tb_web
+      where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s')) and
+      timestamp >= '%s' and timestamp < '%s' ) T
+  left outer join tb_cssinfo I on I.css_ip=T.ip
+GROUP BY stat_min, I.app_id,I.so_id,T.ip
+]]></selectWebCss>
+<selectWebCssM><![CDATA[
+select I.stat_min, I.app_id, I.so_id, I.css_ip
+, nvl(req_cnt,'0') req_cnt, nvl(success_cnt,'0') success_cnt, nvl(c200_cnt,'0') c200_cnt
+, nvl(c304_cnt,'0') c304_cnt, nvl(fail_cnt,'0') fail_cnt, nvl(success_cnt*100/req_cnt,'0') success_rate, nvl(data_size,'0') data_size 
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(I.stat_min,1,8) dt, substr(I.stat_min,9,2) hh
+from (
+select
+  stat_min,
+  nvl(I.app_id,'999') AS app_id,
+  nvl(I.so_id,'999') AS so_id,
+  T.ip AS css_ip, -- T.clientip,
+  COUNT(*) AS req_cnt,
+  COUNT(CASE WHEN T.ret_code = '200' OR T.ret_code = '304' THEN 1 END) AS success_cnt,
+  COUNT(CASE T.ret_code WHEN '200' THEN 1 END) AS c200_cnt,
+  COUNT(CASE T.ret_code WHEN '304' THEN 1 END) AS c304_cnt,
+  COUNT(CASE WHEN T.ret_code != '200' and T.ret_code !='304' THEN 1 END) AS fail_cnt,
+  COUNT(CASE WHEN T.ret_code = '200' OR T.ret_code = '304' THEN 1 END)*100.0/COUNT(*) AS success_rate,
+  SUM(T.bytes)/1024 AS data_size,
+  concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date,
+  substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from ( select regexp_replace(substr(timestamp,1,16),'[-: ]','') stat_min, ip, ret_code, bytes
+          from tb_web
+      where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s')) and
+      timestamp >= '%s' and timestamp < '%s' ) T
+  left outer join tb_cssinfo I on I.css_ip=T.ip
+GROUP BY stat_min, I.app_id,I.so_id,T.ip
+) C right outer join %s I on I.css_ip=C.css_ip and I.stat_min=C.stat_min
+]]></selectWebCssM>
+<selectWebAppM><![CDATA[
+select stat_min, app_id
+, sum(req_cnt) req_cnt, sum(success_cnt) success_cnt, sum(c200_cnt) c200_cnt, sum(c304_cnt) c304_cnt
+, sum(fail_cnt) fail_cnt, nvl(sum(success_cnt)*100.0/sum(req_cnt),'0') success_rate, sum(data_size) data_size
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_css_web_min
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and stat_min>='%s' and stat_min<'%s'
+GROUP BY stat_min,app_id
+]]></selectWebAppM>
+<selectWebSoM><![CDATA[
+select stat_min, app_id, so_id
+, sum(req_cnt) req_cnt, sum(success_cnt) success_cnt, sum(c200_cnt) c200_cnt, sum(c304_cnt) c304_cnt
+, sum(fail_cnt) fail_cnt, nvl(sum(success_cnt)*100.0/sum(req_cnt),'0') success_rate, sum(data_size) data_size
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_css_web_min
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and stat_min>='%s' and stat_min<'%s'
+GROUP BY stat_min,app_id,so_id
+]]></selectWebSoM>
+<selectWebApp><![CDATA[
+select
+  stat_min,
+  nvl(I.app_id,'999') AS app_id,
+  COUNT(*) AS req_cnt,
+  COUNT(CASE WHEN T.ret_code = '200' OR T.ret_code = '304' THEN 1 END) AS success_cnt,
+  COUNT(CASE T.ret_code WHEN '200' THEN 1 END) AS c200_cnt,
+  COUNT(CASE T.ret_code WHEN '304' THEN 1 END) AS c304_cnt,
+  COUNT(CASE WHEN T.ret_code != '200' and T.ret_code !='304' THEN 1 END) AS fail_cnt,
+  COUNT(CASE WHEN T.ret_code = '200' OR T.ret_code = '304' THEN 1 END)*100.0/COUNT(*) AS success_rate,
+  SUM(T.bytes) AS data_size,
+  concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date,
+  substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from ( select regexp_replace(substr(timestamp,1,16),'[-: ]','') stat_min, ip, ret_code, bytes 
+	  from tb_web
+      where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s')) and
+      timestamp >= '%s' and timestamp < '%s' ) T
+  left outer join tb_cssinfo I on I.css_ip=T.ip
+GROUP BY stat_min,I.app_id
+]]></selectWebApp>
+
+<selectWebSo><![CDATA[
+select
+  stat_min,
+  nvl(I.app_id,'999') AS app_id,
+  nvl(I.so_id,'999') AS so_id,
+  COUNT(*) AS req_cnt,
+  COUNT(CASE WHEN T.ret_code = '200' OR T.ret_code = '304' THEN 1 END) AS success_cnt,
+  COUNT(CASE T.ret_code WHEN '200' THEN 1 END) AS c200_cnt,
+  COUNT(CASE T.ret_code WHEN '304' THEN 1 END) AS c304_cnt,
+  COUNT(CASE WHEN T.ret_code != '200' and T.ret_code !='304' THEN 1 END) AS fail_cnt,
+  COUNT(CASE WHEN T.ret_code = '200' OR T.ret_code = '304' THEN 1 END)*100.0/COUNT(*) AS success_rate,
+  SUM(T.bytes) AS data_size,
+  concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date,
+  substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from ( select regexp_replace(substr(timestamp,1,16),'[-: ]','') stat_min, ip, ret_code, bytes 
+	  from tb_web
+      where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s')) and
+      timestamp >= '%s' and timestamp < '%s' ) T
+  left outer join tb_cssinfo I on I.css_ip=T.ip
+GROUP BY stat_min,I.app_id,I.so_id
+]]></selectWebSo>
+
+</web>

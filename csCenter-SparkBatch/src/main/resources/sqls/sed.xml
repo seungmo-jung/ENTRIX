@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<sed>
+
+<!-- for test
+<selectSedCss><![CDATA[
+select stat_min, so_id, app_id, css_ip
+, count(*) test_cnt, sum(success_cnt) success_cnt
+, count(*)-sum(success_cnt) fail_cnt, sum(success_cnt)*100.0/count(*) success_rate
+, sum(low_psnr) low_psnr, sum(no_codec) no_codec, sum(no_video) no_video
+, sum(connect_fail) connect_fail
+, regexp_replace(substr(stat_min,1,10),'-','') dt, substr(stat_min,12,2) hh
+from (
+	select substr(test_date,1,16) stat_min
+	, nvl(I.so_id,'999') so_id, nvl(I.app_id,'999') app_id, S.css_ip
+	, case when result='OK' then 1 else 0 end success_cnt
+	, case when result<>'OK' and instr(detail,'PSNR')>0 then 1 else 0 end low_psnr
+	, case when result<>'OK' and instr(detail,'Codec')>0 then 1 else 0 end no_codec
+	, case when result<>'OK' and instr(detail,'Video')>0 then 1 else 0 end no_video
+	, case when result<>'OK' and instr(detail,'Connect')>0 then 1 else 0 end connect_fail
+	from tb_sed_test S left outer join tb_cssinfo I on I.css_ip=S.css_ip
+	where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+	and test_date>='%s' and test_date<'%s'
+) T group by stat_min, so_id, app_id, css_ip
+]]></selectSedCss>
+-->
+
+<selectSedCss><![CDATA[
+select stat_min, app_id, so_id, css_ip
+, count(*) test_cnt, sum(success_cnt) success_cnt
+, count(*)-sum(success_cnt) fail_cnt, sum(success_cnt)*100.0/count(*) success_rate
+, sum(low_psnr) low_psnr, sum(no_codec) no_codec, sum(no_video) no_video
+, sum(connect_fail) connect_fail
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from (
+	select regexp_replace(substr(test_date,1,16),'[-: ]','') stat_min
+	, nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id, S.ip_addr css_ip
+	, case when result='OK' and detail='' then 1 else 0 end success_cnt
+	, case when instr(detail,'PSNR')>0 then 1 else 0 end low_psnr
+	, case when instr(detail,'Codec')>0 then 1 else 0 end no_codec
+	, case when instr(detail,'Video')>0 then 1 else 0 end no_video
+	, case when instr(detail,'Connect')>0 then 1 else 0 end connect_fail
+	from tb_sed S left outer join tb_cssinfo I on I.css_ip=S.ip_addr
+	where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+	and test_date>='%s' and test_date<'%s'
+) T group by stat_min, app_id, so_id, css_ip
+]]></selectSedCss>
+<selectSedCssM><![CDATA[
+select I.stat_min, I.app_id, I.so_id, I.css_ip
+, nvl(test_cnt,'0') test_cnt, nvl(success_cnt,'0') success_cnt
+, nvl(test_cnt,'0')-nvl(success_cnt,'0') fail_cnt, nvl(nvl(success_cnt,'0')*100.0/nvl(test_cnt,'0'),'0') success_rate
+, nvl(low_psnr,'0') low_psnr, nvl(no_codec,'0') no_codec, nvl(no_video,'0') no_video
+, nvl(connect_fail,'0') connect_fail
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(I.stat_min,1,8) dt, substr(I.stat_min,9,2) hh
+from (
+select stat_min, app_id, so_id, css_ip
+, count(*) test_cnt, sum(success_cnt) success_cnt
+, count(*)-sum(success_cnt) fail_cnt, sum(success_cnt)*100.0/count(*) success_rate
+, sum(low_psnr) low_psnr, sum(no_codec) no_codec, sum(no_video) no_video
+, sum(connect_fail) connect_fail
+from (
+        select regexp_replace(substr(test_date,1,16),'[-: ]','') stat_min
+        , nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id, S.ip_addr css_ip
+        , case when result='OK' then 1 else 0 end success_cnt
+        , case when instr(detail,'PSNR')>0 then 1 else 0 end low_psnr
+        , case when instr(detail,'Codec')>0 then 1 else 0 end no_codec
+        , case when instr(detail,'Video')>0 then 1 else 0 end no_video
+        , case when instr(detail,'Connect')>0 then 1 else 0 end connect_fail
+        from tb_sed S left outer join tb_cssinfo I on I.css_ip=S.ip_addr
+        where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+        and test_date>='%s' and test_date<'%s'
+) T group by stat_min, app_id, so_id, css_ip
+) C right outer join %s I on I.css_ip=C.css_ip and I.stat_min=C.stat_min
+]]></selectSedCssM>
+<selectSedApp><![CDATA[
+select stat_min, app_id
+, sum(test_cnt) test_cnt, sum(success_cnt) success_cnt
+, sum(fail_cnt) fail_cnt, nvl(sum(success_cnt)*100.0/sum(test_cnt),'0') success_rate
+, sum(low_psnr) low_psnr, sum(no_codec) no_codec, sum(no_video) no_video
+, sum(connect_fail) connect_fail
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_css_sed_min
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and stat_min>='%s' and stat_min<'%s'
+group by stat_min, app_id
+]]></selectSedApp>
+<selectSedSo><![CDATA[
+select stat_min, app_id, so_id
+, sum(test_cnt) test_cnt, sum(success_cnt) success_cnt
+, sum(fail_cnt) fail_cnt, nvl(sum(success_cnt)*100.0/sum(test_cnt),'0') success_rate
+, sum(low_psnr) low_psnr, sum(no_codec) no_codec, sum(no_video) no_video
+, sum(connect_fail) connect_fail
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_css_sed_min
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and stat_min>='%s' and stat_min<'%s'
+group by stat_min, app_id, so_id
+]]></selectSedSo>
+
+</sed>

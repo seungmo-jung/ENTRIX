@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<collectd>
+
+<selectCollectdCpu><![CDATA[
+select stat_min, so_id, host_name
+, avg(user) avg_user, min(user) min_user, max(user) max_user
+, avg(system) avg_system, min(system) min_system, max(system) max_system
+, avg(idle) avg_idle, min(idle) min_idle, max(idle) max_idle
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from (
+	select regexp_replace(substr(time,1,16),'[-: ]','') stat_min
+	, nvl(I.so_id,'999') so_id, C.host host_name
+	, case when type_instance='user' then cast(values as double) end user
+	, case when type_instance='system' then cast(values as double) end system
+	, case when type_instance='idle' then cast(values as double) end idle
+	from tb_cpu C left outer join tb_cssinfo I on I.host_name=C.host
+	where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+	and time>='%s' and time<'%s'
+) T group by stat_min, so_id, host_name
+]]></selectCollectdCpu>
+<selectCollectdCpuM><![CDATA[
+select I.stat_min, I.so_id, I.host_name
+, nvl(avg(user),'0') avg_user, nvl(min(user),'0') min_user, nvl(max(user),'0') max_user
+, nvl(avg(system),'0') avg_system, nvl(min(system),'0') min_system, nvl(max(system),'0') max_system
+, nvl(avg(idle),'0') avg_idle, nvl(min(idle),'0') min_idle, nvl(max(idle),'0') max_idle
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(I.stat_min,1,8) dt, substr(I.stat_min,9,2) hh
+from (
+  select regexp_replace(substr(time,1,16),'[-: ]','') stat_min
+  , host host_name
+  , case when type_instance='user' then cast(values as double) end user
+  , case when type_instance='system' then cast(values as double) end system
+  , case when type_instance='idle' then cast(values as double) end idle
+  from tb_cpu
+  where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+  and time>='%s' and time<'%s'
+) T right outer join %s I on I.host_name=T.host_name and I.stat_min=T.stat_min 
+group by I.stat_min, I.so_id, I.host_name
+]]></selectCollectdCpuM>
+
+<selectCollectdMem><![CDATA[
+select stat_min, so_id, host_name
+, avg(used) avg_used, min(used) min_used, max(used) max_used
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from (
+	select regexp_replace(substr(time,1,16),'[-: ]','') stat_min
+	, nvl(I.so_id,'999') so_id, C.host host_name
+	, case when type_instance='used' then cast(values as double) end used
+	from tb_mem C left outer join tb_cssinfo I on I.host_name=C.host
+	where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+	and time>='%s' and time<'%s'
+) T group by stat_min, so_id, host_name
+]]></selectCollectdMem>
+<selectCollectdMemM><![CDATA[
+select I.stat_min, I.so_id, I.host_name
+, nvl(avg(used),'0') avg_used, nvl(min(used),'0') min_used, nvl(max(used),'0') max_used
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(I.stat_min,1,8) dt, substr(I.stat_min,9,2) hh
+from (
+	select regexp_replace(substr(time,1,16),'[-: ]','') stat_min
+	, host host_name
+	, case when type_instance='used' then cast(values as double) end used
+	from tb_mem
+	where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+	and time>='%s' and time<'%s'
+) T right outer join %s I on I.host_name=T.host_name and I.stat_min=T.stat_min 
+group by I.stat_min, I.so_id, I.host_name
+]]></selectCollectdMemM>
+
+<selectCollectdDisk><![CDATA[
+select stat_min
+, nvl(I.so_id,'999') so_id, G.host host_name
+, mount, sum(free) free, sum(used) used
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from (
+	select stat_min, host, plugin_instance mount
+	, case when type_instance='free' then cast(values as double) end free
+	, case when type_instance='used' then cast(values as double) end used
+	, lead(time,1) over (partition by stat_min,host,plugin_instance,type_instance order by time asc) lead_time
+	from (
+		select regexp_replace(substr(time,1,16),'[-: ]','') stat_min
+		, time, host, plugin_instance, type_instance, values
+		from tb_disk
+		where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+		and time>='%s' and time<'%s'
+	) D
+) G left outer join tb_cssinfo I on I.host_name=G.host
+where lead_time is null
+group by stat_min, I.so_id, G.host, mount
+]]></selectCollectdDisk>
+<selectCollectdDiskM><![CDATA[
+select I.stat_min, I.so_id, I.host_name
+, nvl(mount,'empty') mount, nvl(sum(free),'0') free, nvl(sum(used),'0') used
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(I.stat_min,1,8) dt, substr(I.stat_min,9,2) hh
+from (
+  select stat_min, host, plugin_instance mount
+  , case when type_instance='free' then cast(values as double) end free
+  , case when type_instance='used' then cast(values as double) end used
+  , lead(time,1) over (partition by stat_min,host,plugin_instance,type_instance order by time asc) lead_time
+  from (
+    select regexp_replace(substr(time,1,16),'[-: ]','') stat_min
+    , time, host, plugin_instance, type_instance, values
+    from tb_disk
+    where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+    and time>='%s' and time<'%s'
+  ) D
+) G right outer join %s I on I.host_name=G.host and I.stat_min=G.stat_min
+where lead_time is null
+group by I.stat_min, I.so_id, I.host_name, mount
+]]></selectCollectdDiskM>
+
+<selectCollectdNetwork><![CDATA[
+select stat_min, so_id, network_id, port_no
+, cast(avg(rx) as bigint) avg_rx_bps, min(rx) min_rx_bps, max(rx) max_rx_bps
+, cast(avg(tx) as bigint) avg_tx_bps, min(tx) min_tx_bps, max(tx) max_tx_bps
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from (
+	select regexp_replace(substr(time,1,16),'[-: ]','') stat_min
+	, nvl(I.so_id,'999') so_id, C.host network_id
+	, case when instr(type_instance,'Port')>0
+	       then cast(split(split(type_instance,'Port')[1],' ')[1] as int)
+	       else cast(type_instance as int)
+	       end port_no
+	, cast(split(values,',')[0] as bigint) rx
+	, cast(split(values,',')[1] as bigint) tx
+	from tb_network C left outer join tb_netinfo I on I.switch_name=C.host
+	where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+	and time>='%s' and time<'%s'
+) T group by stat_min, so_id, network_id, port_no
+]]></selectCollectdNetwork>
+<selectCollectdNetwork2><![CDATA[
+select stat_min, so_id, network_id, port_no
+, cast(avg(rx) as bigint) avg_rx_bps, min(rx) min_rx_bps, max(rx) max_rx_bps
+, cast(avg(tx) as bigint) avg_tx_bps, min(tx) min_tx_bps, max(tx) max_tx_bps
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from (
+	select stat_min, nvl(I.so_id,'999') so_id, C.host network_id, port_no, tx, rx
+	from (
+		select regexp_replace(substr(time,1,16),'[-: ]','') stat_min, host
+		, case when instr(type_instance,'Port')>0
+			then cast(split(split(type_instance,'Port')[1],' ')[1] as int)
+			else -1
+			end port_no
+		, cast(split(values,',')[0] as bigint) rx
+		, cast(split(values,',')[1] as bigint) tx
+		from tb_network
+		where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+		and time>='%s' and time<'%s'
+	) C
+	left outer join tb_netinfo I on I.switch_name=C.host and I.port_type!='U'
+	where port_no>=0
+) T group by stat_min, so_id, network_id, port_no
+]]></selectCollectdNetwork2>
+<selectCollectdNetwork2M><![CDATA[
+select stat_min, so_id, network_id, port_no
+, nvl(cast(avg(rx) as bigint),'0') avg_rx_bps, nvl(min(rx),'0') min_rx_bps, nvl(max(rx),'0') max_rx_bps
+, nvl(cast(avg(tx) as bigint),'0') avg_tx_bps, nvl(min(tx),'0') min_tx_bps, nvl(max(tx),'0') max_tx_bps
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from (
+  select I.stat_min, I.so_id, I.switch_name network_id, I.port_id port_no, cast(nvl(tx,'0') as bigint) tx, cast(nvl(rx,'0') as bigint) rx
+  from (
+    select regexp_replace(substr(time,1,16),'[-: ]','') stat_min, host
+    , case when instr(type_instance,'Port')>0
+      then cast(split(split(type_instance,'Port')[1],' ')[1] as int)
+      when instr(type_instance, 'GigabitEthernet1')>0
+      then cast(split(type_instance,'_')[2] as int)
+      else -1
+      end port_no
+    , cast(split(values,',')[0] as bigint) rx
+    , cast(split(values,',')[1] as bigint) tx
+    from tb_network
+    where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+    and time>='%s' and time<'%s'
+  ) C
+  right outer join %s I on I.switch_name=C.host and I.port_type!='U' and I.stat_min=C.stat_min and I.port_id=C.port_no
+  where port_type!='U'
+) T group by stat_min, so_id, network_id, port_no
+]]></selectCollectdNetwork2M>
+
+<selectCollectdUplink><![CDATA[
+select stat_min, so_id, network_id
+, cast(avg(rx) as bigint) avg_rx_bps, min(rx) min_rx_bps, max(rx) max_rx_bps
+, cast(avg(tx) as bigint) avg_tx_bps, min(tx) min_tx_bps, max(tx) max_tx_bps
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from (
+	select regexp_replace(substr(time,1,16),'[-: ]','') stat_min
+	, nvl(I.so_id,'999') so_id, C.host network_id
+	, case when instr(type_instance,'Port')>0
+	       then cast(split(split(type_instance,'Port')[1],' ')[1] as int)
+	       else cast(type_instance as int)
+	       end port_no
+	, cast(split(values,',')[0] as bigint) rx
+	, cast(split(values,',')[1] as bigint) tx
+	from tb_network C left outer join tb_netinfo I on I.switch_name=C.host
+	where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+	and time>='%s' and time<'%s'
+) T group by stat_min, so_id, network_id
+]]></selectCollectdUplink>
+<selectCollectdUplink2><![CDATA[
+select stat_min, so_id, network_id
+, cast(avg(rx) as bigint) avg_rx_bps, min(rx) min_rx_bps, max(rx) max_rx_bps
+, cast(avg(tx) as bigint) avg_tx_bps, min(tx) min_tx_bps, max(tx) max_tx_bps
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from (
+	select stat_min, nvl(I.so_id,'999') so_id, C.host network_id, port_no, tx, rx
+	from (
+		select regexp_replace(substr(time,1,16),'[-: ]','') stat_min, host
+		, case when instr(type_instance,'Port')>0
+			then cast(split(split(type_instance,'Port')[1],' ')[1] as int)
+			else -1
+			end port_no
+		, cast(split(values,',')[0] as bigint) rx
+		, cast(split(values,',')[1] as bigint) tx
+		from tb_network
+		where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+		and time>='%s' and time<'%s'
+	) C
+	inner join tb_netinfo I on I.switch_name=C.host and C.port_no=I.port_id and I.port_type='U'
+	where port_no>=0
+) T group by stat_min, so_id, network_id
+]]></selectCollectdUplink2>
+<selectCollectdUplink2M><![CDATA[
+select stat_min, so_id, network_id
+, cast(avg(rx) as bigint) avg_rx_bps, min(rx) min_rx_bps, max(rx) max_rx_bps
+, cast(avg(tx) as bigint) avg_tx_bps, min(tx) min_tx_bps, max(tx) max_tx_bps
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from (
+  select I.stat_min, I.so_id, I.switch_name network_id, I.port_id port_no, cast(nvl(tx,'0') as bigint) tx, cast(nvl(rx,'0') as bigint) rx
+  from (
+    select regexp_replace(substr(time,1,16),'[-: ]','') stat_min, host
+    , case when instr(type_instance,'Port')>0
+      then cast(split(split(type_instance,'Port')[1],' ')[1] as int)
+      when instr(type_instance, 'GigabitEthernet1')>0
+      then cast(split(type_instance,'_')[2] as int)
+      else -1
+      end port_no
+    , cast(split(values,',')[0] as bigint) rx
+    , cast(split(values,',')[1] as bigint) tx
+    from tb_network
+    where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+    and time>='%s' and time<'%s'
+  ) C
+  right outer join %s I on I.switch_name=C.host and I.port_type='U' and I.stat_min=C.stat_min and I.port_id=C.port_no
+  where port_type='U'
+) T group by stat_min, so_id, network_id
+]]></selectCollectdUplink2M>
+
+</collectd>

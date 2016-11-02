@@ -1,0 +1,547 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<stat>
+
+<!-- select stat CCU -->
+
+<selectStatCcu><![CDATA[
+select concat(O.css_ip,'_',stb_id) sesskey, registered_date, motion
+, nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id, O.css_ip
+from tb_onoff O left outer join tb_cssinfo I on I.css_ip=O.css_ip
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and registered_date>='%s' and registered_date<'%s'
+]]></selectStatCcu>
+<selectStatCcuByLeadOn><![CDATA[
+select concat(O.css_ip,'_',stb_id) sesskey, registered_date, motion
+, nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id, O.css_ip
+from (
+	select css_ip, stb_id, registered_date, motion
+	, lead(registered_date,1) over (partition by css_ip,stb_id order by registered_date asc) lead_date
+	from tb_onoff
+	where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+	and registered_date>='%s' and registered_date<'%s'
+) O left outer join tb_cssinfo I on I.css_ip=O.css_ip
+where lead_date is null and motion='ON'
+]]></selectStatCcuByLeadOn>
+<selectStatCcuByLagOff><![CDATA[
+select concat(O.css_ip,'_',stb_id) sesskey, registered_date, motion
+, nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id, O.css_ip
+from (
+	select css_ip, stb_id, registered_date, motion, so
+	, lag(registered_date,1) over (partition by css_ip,stb_id order by registered_date asc) lag_date
+	from tb_onoff
+	where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+	and registered_date>='%s' and registered_date<'%s'
+) O left outer join tb_cssinfo I on I.css_ip=O.css_ip
+where lag_date is null and motion='OFF'
+]]></selectStatCcuByLagOff>
+
+<selectStatCcuAll><![CDATA[
+select concat(O.css_ip,'_',stb_id) sesskey, registered_date, motion
+, nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id, O.css_ip, 'pre' flag
+from (
+	select css_ip, stb_id, registered_date, motion
+	, lead(registered_date,1) over (partition by css_ip,stb_id order by registered_date asc) lead_date
+	from tb_onoff
+	where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+	and registered_date>='%s' and registered_date<'%s'
+) O left outer join tb_cssinfo I on I.css_ip=O.css_ip
+where lead_date is null and motion='ON'
+union all
+select concat(O.css_ip,'_',stb_id) sesskey, registered_date, motion
+, nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id, O.css_ip, 'cur' flag
+from tb_onoff O left outer join tb_cssinfo I on I.css_ip=O.css_ip
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and registered_date>='%s' and registered_date<'%s'
+union all
+select concat(O.css_ip,'_',stb_id) sesskey, registered_date, motion
+, nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id, O.css_ip, 'pos' flag
+from (
+	select css_ip, stb_id, registered_date, motion, so
+	, lag(registered_date,1) over (partition by css_ip,stb_id order by registered_date asc) lag_date
+	from tb_onoff
+	where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+	and registered_date>='%s' and registered_date<'%s'
+) O left outer join tb_cssinfo I on I.css_ip=O.css_ip
+where lag_date is null and motion='OFF'
+]]></selectStatCcuAll>
+
+<selectStatCcuSingle><![CDATA[
+select concat(O.css_ip,'_',stb_id) sesskey
+, registered_date, motion, off_date
+, nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id, O.css_ip
+from tb_onoff O left outer join tb_cssinfo I on I.css_ip=O.css_ip
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and ((registered_date>='%s' and registered_date<'%s') or (off_date>='%s' and off_date<'%s'))
+and motion='OFF'
+]]></selectStatCcuSingle>
+<selectStatCcuMulti><![CDATA[
+select concat(O.css_ip,'_',stb_id) sesskey
+, registered_date, motion, off_date
+, nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id, O.css_ip
+from tb_onoff O left outer join tb_cssinfo I on I.css_ip=O.css_ip
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and registered_date>='%s' and registered_date<'%s' and off_date>='%s'
+and motion='OFF'
+]]></selectStatCcuMulti>
+<selectStatCcuMultiM><![CDATA[
+select concat(I.stat_min,'_',I.css_ip,'_',nvl(stb_id,'VIRTUAL_STB_ID')) sesskey
+, nvl(registered_date,'3000-01-01 00:00:00') registered_date
+, nvl(motion,'OFF') motion
+, nvl(off_date,'1900-01-01 00:00:00') off_date
+, I.app_id, I.so_id, I.css_ip
+, concat(substr(I.stat_min,1,4),'-',substr(I.stat_min,5,2),'-',substr(I.stat_min,7,2),' ',substr(I.stat_min,9,2),':',substr(I.stat_min,11,2),':00.000') min
+, concat(I.stat_min,'_',I.app_id,'_',nvl(stb_id,'VIRTUAL_STB_ID')) appkey
+, concat(I.stat_min,'_',I.app_id,'_',I.so_id,'_',nvl(stb_id,'VIRTUAL_STB_ID')) sokey
+from (
+  select case when regexp_replace(substr(registered_date,1,16),'[-: ]','') > '%s' 
+  then regexp_replace(substr(registered_date,1,16),'[-: ]','') 
+  else '%s' 
+  end stat_min
+  ,css_ip ,stb_id, registered_date, motion, off_date  
+  from tb_onoff where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+  and registered_date>='%s' and registered_date<'%s' and off_date>='%s'
+  and motion='OFF'
+) O right outer join %s I on I.stat_min=O.stat_min and I.css_ip=O.css_ip
+]]></selectStatCcuMultiM>
+
+<!-- select UV/PV -->
+
+<selectUvPvCss><![CDATA[
+select regexp_replace(U.stat_min,'[-: ]','') stat_min
+, U.app_id, U.so_id, U.css_ip, U.cnt uv, P.cnt pv
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, regexp_replace(substr(U.stat_min,1,10),'-','') dt, substr(U.stat_min,12,2) hh
+from (
+	select stat_min, app_id, so_id, css_ip, count(*) cnt
+	from (
+		select distinct substr(registered_date,1,16) stat_min
+		, nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id, O.css_ip
+		, stb_id
+		from tb_onoff O left outer join tb_cssinfo I on I.css_ip=O.css_ip
+		where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+		and registered_date>='%s' and registered_date<'%s'
+		and motion='OFF'
+	) A
+	group by stat_min, app_id, so_id, css_ip
+) U inner join (
+	select substr(registered_date,1,16) stat_min
+	, nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id
+	, O.css_ip, count(*) cnt
+	from tb_onoff O left outer join tb_cssinfo I on I.css_ip=O.css_ip
+	where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+	and registered_date>='%s' and registered_date<'%s'
+	and motion='OFF'
+	group by substr(registered_date,1,16), I.app_id, I.so_id, O.css_ip
+) P on U.stat_min=P.stat_min and U.css_ip=P.css_ip
+]]></selectUvPvCss>
+<selectUvPvApp><![CDATA[
+select regexp_replace(U.stat_min,'[-: ]','') stat_min
+, U.app_id, U.cnt uv, P.cnt pv
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, regexp_replace(substr(U.stat_min,1,10),'-','') dt, substr(U.stat_min,12,2) hh
+from (
+	select stat_min, app_id, count(*) cnt
+	from (
+		select distinct substr(registered_date,1,16) stat_min
+		, nvl(I.app_id,'999') app_id
+		, stb_id
+		from tb_onoff O left outer join tb_cssinfo I on I.css_ip=O.css_ip
+		where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+		and registered_date>='%s' and registered_date<'%s'
+		and motion='OFF'
+	) A
+	group by stat_min, app_id
+) U inner join (
+	select substr(registered_date,1,16) stat_min
+	, nvl(I.app_id,'999') app_id
+	, count(*) cnt
+	from tb_onoff O left outer join tb_cssinfo I on I.css_ip=O.css_ip
+	where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+	and registered_date>='%s' and registered_date<'%s'
+	and motion='OFF'
+	group by substr(registered_date,1,16), I.app_id
+) P on U.stat_min=P.stat_min and U.app_id=P.app_id
+]]></selectUvPvApp>
+<selectUvPvSo><![CDATA[
+select regexp_replace(U.stat_min,'[-: ]','') stat_min
+, U.app_id, U.so_id, U.cnt uv, P.cnt pv
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, regexp_replace(substr(U.stat_min,1,10),'-','') dt, substr(U.stat_min,12,2) hh
+from (
+	select stat_min, app_id, so_id, count(*) cnt
+	from (
+		select distinct substr(registered_date,1,16) stat_min
+		, nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id
+		, stb_id
+		from tb_onoff O left outer join tb_cssinfo I on I.css_ip=O.css_ip
+		where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+		and registered_date>='%s' and registered_date<'%s'
+		and motion='OFF'
+	) A
+	group by stat_min, app_id, so_id
+) U inner join (
+	select substr(registered_date,1,16) stat_min
+	, nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id
+	, count(*) cnt
+	from tb_onoff O left outer join tb_cssinfo I on I.css_ip=O.css_ip
+	where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+	and registered_date>='%s' and registered_date<'%s'
+	and motion='OFF'
+	group by substr(registered_date,1,16), I.app_id, I.so_id
+) P on U.stat_min=P.stat_min and U.so_id=P.so_id
+]]></selectUvPvSo>
+<selectUvPvCssM><![CDATA[
+select I.stat_min, I.app_id, I.so_id, I.css_ip, sum(nvl(uv,'0')) uv, sum(nvl(pv,'0')) pv
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(I.stat_min,1,8) dt, substr(I.stat_min,9,2) hh
+from (
+select regexp_replace(U.stat_min,'[-: ]','') stat_min
+, U.app_id, U.so_id, U.css_ip, U.cnt uv, P.cnt pv
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, regexp_replace(substr(U.stat_min,1,10),'-','') dt, substr(U.stat_min,12,2) hh
+from (
+  select stat_min, app_id, so_id, css_ip, count(*) cnt
+  from (
+    select distinct substr(registered_date,1,16) stat_min
+    , nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id, O.css_ip
+    , stb_id
+    from tb_onoff O left outer join tb_cssinfo I on I.css_ip=O.css_ip
+    where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+    and registered_date>='%s' and registered_date<'%s'
+    and motion='OFF'
+  ) A
+  group by stat_min, app_id, so_id, css_ip
+) U inner join (
+  select substr(registered_date,1,16) stat_min
+  , nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id
+  , O.css_ip, count(*) cnt
+  from tb_onoff O left outer join tb_cssinfo I on I.css_ip=O.css_ip
+  where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+  and registered_date>='%s' and registered_date<'%s'
+  and motion='OFF'
+  group by substr(registered_date,1,16), I.app_id, I.so_id, O.css_ip
+) P on U.stat_min=P.stat_min and U.css_ip=P.css_ip
+) C right outer join %s I on I.stat_min=C.stat_min and I.app_id=C.app_id and I.so_id=C.so_id and I.css_ip=C.css_ip
+group by I.stat_min, I.app_id, I.so_id, I.css_ip
+]]></selectUvPvCssM>
+<selectUvPvAppM><![CDATA[
+select I.stat_min, I.app_id, sum(nvl(uv,'0')) uv, sum(nvl(pv,'0')) pv
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(I.stat_min,1,8) dt, substr(I.stat_min,9,2) hh
+from (
+select regexp_replace(U.stat_min,'[-: ]','') stat_min
+, U.app_id, U.cnt uv, P.cnt pv
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, regexp_replace(substr(U.stat_min,1,10),'-','') dt, substr(U.stat_min,12,2) hh
+from (
+	select stat_min, app_id, count(*) cnt
+	from (
+		select distinct substr(registered_date,1,16) stat_min
+		, nvl(I.app_id,'999') app_id
+		, stb_id
+		from tb_onoff O left outer join tb_cssinfo I on I.css_ip=O.css_ip
+		where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+		and registered_date>='%s' and registered_date<'%s'
+		and motion='OFF'
+	) A
+	group by stat_min, app_id
+) U inner join (
+	select substr(registered_date,1,16) stat_min
+	, nvl(I.app_id,'999') app_id
+	, count(*) cnt
+	from tb_onoff O left outer join tb_cssinfo I on I.css_ip=O.css_ip
+	where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+	and registered_date>='%s' and registered_date<'%s'
+	and motion='OFF'
+	group by substr(registered_date,1,16), I.app_id
+) P on U.stat_min=P.stat_min and U.app_id=P.app_id
+) C right outer join (select stat_min, app_id from %s group by stat_min, app_id) I 
+on I.stat_min=C.stat_min and I.app_id=C.app_id
+group by I.stat_min, I.app_id
+]]></selectUvPvAppM>
+<selectUvPvSoM><![CDATA[
+select I.stat_min, I.app_id, I.so_id, sum(nvl(uv,'0')) uv, sum(nvl(pv,'0')) pv
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(I.stat_min,1,8) dt, substr(I.stat_min,9,2) hh
+from (
+  select regexp_replace(U.stat_min,'[-: ]','') stat_min
+  , U.app_id, U.so_id, U.cnt uv, P.cnt pv
+  , concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+  , regexp_replace(substr(U.stat_min,1,10),'-','') dt, substr(U.stat_min,12,2) hh
+  from (
+	select stat_min, app_id, so_id, count(*) cnt
+	from (
+		select distinct substr(registered_date,1,16) stat_min
+		, nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id
+		, stb_id
+		from tb_onoff O left outer join tb_cssinfo I on I.css_ip=O.css_ip
+		where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+		and registered_date>='%s' and registered_date<'%s'
+		and motion='OFF'
+	) A
+	group by stat_min, app_id, so_id
+  ) U inner join (
+	select substr(registered_date,1,16) stat_min
+	, nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id
+	, count(*) cnt
+	from tb_onoff O left outer join tb_cssinfo I on I.css_ip=O.css_ip
+	where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+	and registered_date>='%s' and registered_date<'%s'
+	and motion='OFF'
+	group by substr(registered_date,1,16), I.app_id, I.so_id
+  ) P on U.stat_min=P.stat_min and U.so_id=P.so_id
+) C right outer join (select stat_min, app_id, so_id from %s group by stat_min, app_id, so_id) I 
+on I.stat_min=C.stat_min and I.app_id=C.app_id and I.so_id=C.so_id 
+group by I.stat_min, I.app_id, I.so_id
+]]></selectUvPvSoM>
+
+<!-- select stat Usetime -->
+
+<selectUsetimeCss><![CDATA[
+select stat_min, app_id, so_id, css_ip, count(*) total_cnt
+, sum(use10) c10_sec, sum(use20) c20_sec, sum(use30) c30_sec
+, sum(use40) c40_sec, sum(use50) c50_sec, sum(use60) c60_sec
+, sum(useother) other
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from (
+        select regexp_replace(substr(registered_date,1,16),'[-: ]','') stat_min
+        , nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id, T.css_ip
+        , case when usetime>60 then 1 else 0 end useother
+        , case when usetime>50 and usetime<=60 then 1 else 0 end use60
+        , case when usetime>40 and usetime<=50 then 1 else 0 end use50
+        , case when usetime>30 and usetime<=40 then 1 else 0 end use40
+        , case when usetime>20 and usetime<=30 then 1 else 0 end use30
+        , case when usetime>10 and usetime<=20 then 1 else 0 end use20
+        , case when usetime>0 and usetime<=10 then 1 else 0 end use10
+        from (
+                select registered_date
+                , css_ip
+                , case
+                        when lead_date is null then 999
+                        else unix_timestamp(lead_date,'yyyy-MM-dd HH:mm:ss')-unix_timestamp(registered_date,'yyyy-MM-dd HH:mm:ss')
+                        end usetime
+                from (
+                        select registered_date, css_ip, stb_id, motion
+                        , lead(registered_date,1) over (partition by css_ip,stb_id order by registered_date asc) lead_date
+                        from tb_onoff
+                        where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+                        and registered_date>='%s' and registered_date<'%s'
+                ) A
+                where registered_date<'%s' and motion='ON'
+        ) T left outer join tb_cssinfo I on I.css_ip=T.css_ip
+        where usetime>0
+) U
+group by stat_min, app_id, so_id, css_ip
+]]></selectUsetimeCss>
+<selectUsetimeApp><![CDATA[
+select stat_min, app_id, sum(total_cnt) total_cnt
+, sum(c10_sec) c10_sec, sum(c20_sec) c20_sec, sum(c30_sec) c30_sec
+, sum(c40_sec) c40_sec, sum(c50_sec) c50_sec, sum(c60_sec) c60_sec
+, sum(other) other
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_css_usetime_min
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and stat_min>='%s' and stat_min<'%s'
+group by stat_min, app_id
+]]></selectUsetimeApp>
+<selectUsetimeSo><![CDATA[
+select stat_min, app_id, so_id, sum(total_cnt) total_cnt
+, sum(c10_sec) c10_sec, sum(c20_sec) c20_sec, sum(c30_sec) c30_sec
+, sum(c40_sec) c40_sec, sum(c50_sec) c50_sec, sum(c60_sec) c60_sec
+, sum(other) other
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_css_usetime_min
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and stat_min>='%s' and stat_min<'%s'
+group by stat_min, app_id, so_id
+]]></selectUsetimeSo>
+
+<!-- select stat Bandwidth -->
+<selectBandwidthCss><![CDATA[
+select stat_min, app_id, so_id, css_ip
+, round(avg(mbps),2) avg_mbps, min(mbps) min_mbps, max(mbps) max_mbps
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from (
+	select regexp_replace(substr(registered_date,1,16),'[-: ]','') stat_min
+	, nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id, O.css_ip
+	, round((motion_value*8/60/1024/1024),2) mbps
+	from tb_onoff O left outer join tb_cssinfo I on I.css_ip=O.css_ip
+	where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+	and registered_date>='%s' and registered_date<'%s'
+	and motion='BW'
+) A
+group by stat_min, app_id, so_id, css_ip
+]]></selectBandwidthCss>
+<selectBandwidthApp><![CDATA[
+select stat_min, app_id
+, round(avg(avg_mbps),2) avg_mbps, min(min_mbps) min_mbps, max(max_mbps) max_mbps
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_css_bandwidth_min
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and stat_min>='%s' and stat_min<'%s'
+group by stat_min, app_id
+]]></selectBandwidthApp>
+<selectBandwidthSo><![CDATA[
+select stat_min, app_id, so_id
+, round(avg(avg_mbps),2) avg_mbps, min(min_mbps) min_mbps, max(max_mbps) max_mbps
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_css_bandwidth_min
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and stat_min>='%s' and stat_min<'%s'
+group by stat_min, app_id, so_id
+]]></selectBandwidthSo>
+<selectBandwidthCssM><![CDATA[
+select I.stat_min, I.app_id, I.so_id, I.css_ip
+, nvl(round(avg(mbps),2),'0') avg_mbps, nvl(min(mbps),'0') min_mbps, nvl(max(mbps),'0') max_mbps
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(I.stat_min,1,8) dt, substr(I.stat_min,9,2) hh
+from (
+  select regexp_replace(substr(registered_date,1,16),'[-: ]','') stat_min
+  , css_ip, round((motion_value*8/60/1024/1024),2) mbps
+  from tb_onoff
+  where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+  and registered_date>='%s' and registered_date<'%s'
+  and motion='BW'
+) A right outer join %s I on I.css_ip=A.css_ip and I.stat_min=A.stat_min
+group by I.stat_min, I.app_id, I.so_id, I.css_ip
+]]></selectBandwidthCssM>
+<selectBandwidthAppM><![CDATA[
+select I.stat_min, I.app_id
+, nvl(round(avg(mbps),2),'0') avg_mbps, nvl(min(mbps),'0') min_mbps, nvl(max(mbps),'0') max_mbps
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(I.stat_min,1,8) dt, substr(I.stat_min,9,2) hh
+from (
+  select regexp_replace(substr(registered_date,1,16),'[-: ]','') stat_min
+  , css_ip, round((motion_value*8/60/1024/1024),2) mbps
+  from tb_onoff
+  where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+  and registered_date>='%s' and registered_date<'%s'
+  and motion='BW'
+) A right outer join %s I on I.css_ip=A.css_ip and I.stat_min=A.stat_min
+group by I.stat_min, I.app_id
+]]></selectBandwidthAppM>
+<selectBandwidthSoM><![CDATA[
+select I.stat_min, I.app_id, I.so_id
+, nvl(round(avg(mbps),2),'0') avg_mbps, nvl(min(mbps),'0') min_mbps, nvl(max(mbps),'0') max_mbps
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(I.stat_min,1,8) dt, substr(I.stat_min,9,2) hh
+from (
+  select regexp_replace(substr(registered_date,1,16),'[-: ]','') stat_min
+  , css_ip, round((motion_value*8/60/1024/1024),2) mbps
+  from tb_onoff
+  where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+  and registered_date>='%s' and registered_date<'%s'
+  and motion='BW'
+) A right outer join %s I on I.css_ip=A.css_ip and I.stat_min=A.stat_min
+group by I.stat_min, I.app_id, I.so_id
+]]></selectBandwidthSoM>
+
+<selectUsetimeCssSingle><![CDATA[
+select stat_min, app_id, so_id, css_ip, count(*) total_cnt
+, sum(use10) c10_sec, sum(use20) c20_sec, sum(use30) c30_sec
+, sum(use40) c40_sec, sum(use50) c50_sec, sum(use60) c60_sec
+, sum(useother) other
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from (
+        select regexp_replace(substr(registered_date,1,16),'[-: ]','') stat_min
+        , nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id, T.css_ip
+        , case when usetime>60 then 1 else 0 end useother
+        , case when usetime>50 and usetime<=60 then 1 else 0 end use60
+        , case when usetime>40 and usetime<=50 then 1 else 0 end use50
+        , case when usetime>30 and usetime<=40 then 1 else 0 end use40
+        , case when usetime>20 and usetime<=30 then 1 else 0 end use30
+        , case when usetime>10 and usetime<=20 then 1 else 0 end use20
+        , case when usetime>0 and usetime<=10 then 1 else 0 end use10
+        from (
+                select registered_date
+                , css_ip
+                , unix_timestamp(off_date,'yyyy-MM-dd HH:mm:ss')-unix_timestamp(registered_date,'yyyy-MM-dd HH:mm:ss') usetime
+                from tb_onoff
+                where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+                and registered_date>='%s' and registered_date<'%s'
+                and motion='OFF'
+        ) T left outer join tb_cssinfo I on I.css_ip=T.css_ip
+        where usetime>0
+) U
+group by stat_min, app_id, so_id, css_ip
+]]></selectUsetimeCssSingle>
+
+<!-- select dash -->
+
+<selectDashUpBandSo><![CDATA[
+select app_id, so_id
+, sum(uv) uv, sum(pv) pv, sum(mbps) mbps
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+from (
+  select I.app_id, I.so_id, sum(nvl(uv,'0')) uv, sum(nvl(pv,'0')) pv, 0 mbps
+  from (
+    select regexp_replace(U.stat_min,'[-: ]','') stat_min
+    , U.app_id, U.so_id, U.cnt uv, P.cnt pv
+    , concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+    , regexp_replace(substr(U.stat_min,1,10),'-','') dt, substr(U.stat_min,12,2) hh
+    from (
+      select stat_min, app_id, so_id, count(*) cnt
+      from (
+        select distinct substr(registered_date,1,16) stat_min
+        , nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id
+        , stb_id
+        from tb_onoff O left outer join (select * from tb_cssinfo where role_typ='CSS') I on I.css_ip=O.css_ip
+        where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+        and registered_date>='%s' and registered_date<'%s'
+        and motion='OFF'
+      ) A
+    group by stat_min, app_id, so_id
+    ) U inner join (
+    select substr(registered_date,1,16) stat_min
+    , nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id
+    , count(*) cnt
+    from tb_onoff O left outer join (select * from tb_cssinfo where role_typ='CSS') I on I.css_ip=O.css_ip
+    where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+    and registered_date>='%s' and registered_date<'%s'
+    and motion='OFF'
+    group by substr(registered_date,1,16), I.app_id, I.so_id
+    ) P on U.so_id=P.so_id
+  ) C right outer join (select app_id, so_id from tb_cssinfo where role_typ='CSS' group by app_id, so_id) I 
+  on I.app_id=C.app_id and I.so_id=C.so_id 
+  group by I.app_id, I.so_id  
+  union all
+  select I.app_id, I.so_id
+  , 0 uv, 0 pv, nvl(round(avg(mbps),2),'0') mbps
+  from (
+    select regexp_replace(substr(registered_date,1,16),'[-: ]','') stat_min
+    , css_ip, round((motion_value*8/60/1024/1024),2) mbps, registered_date
+    from tb_onoff
+    where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+    and registered_date>='%s' and registered_date<'%s'
+    and motion='BW'
+  ) A right outer join (select * from tb_cssinfo where role_typ='CSS') I on I.css_ip=A.css_ip
+  group by I.app_id, I.so_id
+) D
+group by app_id, so_id
+]]></selectDashUpBandSo>
+<selectDashCcuSO><![CDATA[
+select concat(I.css_ip,'_',nvl(stb_id,'VIRTUAL_STB_ID')) sesskey
+, nvl(registered_date,'3000-01-01 00:00:00') registered_date
+, nvl(motion,'OFF') motion
+, nvl(off_date,'1900-01-01 00:00:00') off_date
+, I.app_id, I.so_id, I.css_ip
+, concat(I.app_id,'_',nvl(stb_id,'VIRTUAL_STB_ID')) appkey
+, concat(I.app_id,'_',I.so_id,'_',nvl(stb_id,'VIRTUAL_STB_ID')) sokey
+from (
+  select regexp_replace(substr(registered_date,1,16),'[-: ]','') stat_min
+  ,css_ip ,stb_id, registered_date, motion, off_date
+  from tb_onoff where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+  and registered_date>='%s' and registered_date<'%s' and off_date>='%s'
+  and motion='OFF'
+) O right outer join (select * from tb_cssinfo where role_typ='CSS') I on I.css_ip=O.css_ip
+]]></selectDashCcuSO>
+
+</stat>

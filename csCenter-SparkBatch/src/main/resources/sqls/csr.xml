@@ -1,0 +1,406 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<csr>
+
+<!-- select csr Route -->
+
+<selectRouteCss><![CDATA[
+select stat_min
+, nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id, T.css_ip
+, count(*) req_cnt, sum(success) success_cnt, count(*)-sum(success) fail_cnt
+, sum(success)*100.0/count(*) success_rate
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from (
+	select regexp_replace(substr(csr_date,1,16),'[- :]','') stat_min
+	, split(leads,'_')[0] css_ip
+	, case when split(leads,'_')[1]=='0' then 1 else 0 end success
+	from (
+		select csr_date, msg_mode
+		, lead(concat(css_ip,'_',result),1) 
+			over (partition by sess_id,stb_mac,stb_ip order by csr_date asc) leads
+		from tb_csr_r
+		where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+		and csr_date>='%s' and csr_date<'%s'
+	) A
+	where csr_date<'%s' and msg_mode='Request'
+	and leads is not null and instr(leads,'_')>1
+) T left outer join tb_cssinfo I on I.css_ip=T.css_ip
+group by stat_min, I.app_id, I.so_id, T.css_ip
+]]></selectRouteCss>
+<selectRouteApp><![CDATA[
+select stat_min, app_id
+, sum(req_cnt) req_cnt, sum(success_cnt) success_cnt, sum(fail_cnt) fail_cnt
+, sum(success_cnt)*100.0/sum(req_cnt) sucess_rate
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_css_route_min
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and stat_min>='%s' and stat_min<'%s'
+group by stat_min, app_id
+]]></selectRouteApp>
+<selectRouteSo><![CDATA[
+select stat_min, app_id, so_id
+, sum(req_cnt) req_cnt, sum(success_cnt) success_cnt, sum(fail_cnt) fail_cnt
+, sum(success_cnt)*100.0/sum(req_cnt) sucess_rate
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_css_route_min
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and stat_min>='%s' and stat_min<'%s'
+group by stat_min, app_id, so_id
+]]></selectRouteSo>
+<selectRouteCsr><![CDATA[
+select stat_min, csr_id
+, count(*) req_cnt, sum(success) success_cnt, count(*)-sum(success) fail_cnt
+, sum(success)*100.0/count(*) success_rate
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from (
+	select regexp_replace(substr(csr_date,1,16),'[- :]','') stat_min, csr_id
+	, split(leads,'_')[0] css_ip
+	, case when split(leads,'_')[1]=='0' then 1 else 0 end success
+	from (
+		select csr_date, msg_mode, csr_id
+		, lead(concat(css_ip,'_',result),1) 
+			over (partition by sess_id,stb_mac,stb_ip order by csr_date asc) leads
+		from tb_csr_r
+		where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+		and csr_date>='%s' and csr_date<'%s'
+	) A
+	where csr_date<'%s' and msg_mode='Request'
+	and leads is not null and instr(leads,'_')>1
+) T
+group by stat_min, csr_id
+]]></selectRouteCsr>
+
+<!-- select csr Status -->
+
+<selectStatusCss><![CDATA[
+select stat_min
+, nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id, T.css_ip
+, count(*) req_cnt, sum(success) success_cnt, count(*)-sum(success) fail_cnt
+, sum(success)*100.0/count(*) success_rate
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from (
+	select regexp_replace(substr(csr_date,1,16),'[-: ]','') stat_min
+	, split(leads,'_')[0] css_ip
+	, case when split(leads,'_')[1]=='0' then 1 else 0 end success
+	from (
+		select csr_date, msg_mode
+		, lead(concat(css_ip,'_',result),1) 
+			over (partition by sess_id,stb_mac,css_ip order by csr_date asc) leads
+		from tb_csr_s
+		where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+		and csr_date>='%s' and csr_date<'%s'
+	) A
+	where csr_date<'%s' and msg_mode='Request'
+	and leads is not null and instr(leads,'_')>1
+) T left outer join tb_cssinfo I on I.css_ip=T.css_ip
+group by stat_min, I.app_id, I.so_id, T.css_ip
+]]></selectStatusCss>
+<selectStatusCssDummy><![CDATA[
+select stat_min
+, nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id, T.css_ip
+, count(*) req_cnt, sum(success) success_cnt, count(*)-sum(success) fail_cnt
+, sum(success)*100.0/count(*) success_rate
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from (
+	select regexp_replace(substr(csr_date,1,16),'[-: ]','') stat_min
+	, css_ip
+	, 1 success
+	from tb_csr_s
+	where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+	and csr_date>='%s' and csr_date<'%s'
+	and csr_date<'%s' and msg_mode='Request'
+) T left outer join tb_cssinfo I on I.css_ip=T.css_ip
+group by stat_min, I.app_id, I.so_id, T.css_ip
+]]></selectStatusCssDummy>
+
+<selectStatusApp><![CDATA[
+select stat_min, app_id
+, sum(req_cnt) req_cnt, sum(success_cnt) success_cnt, sum(fail_cnt) fail_cnt
+, sum(success_cnt)*100.0/sum(req_cnt) sucess_rate
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_css_status_min
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and stat_min>='%s' and stat_min<'%s'
+group by stat_min, app_id
+]]></selectStatusApp>
+<selectStatusSo><![CDATA[
+select stat_min, app_id, so_id
+, sum(req_cnt) req_cnt, sum(success_cnt) success_cnt, sum(fail_cnt) fail_cnt
+, sum(success_cnt)*100.0/sum(req_cnt) sucess_rate
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_css_status_min
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and stat_min>='%s' and stat_min<'%s'
+group by stat_min, app_id, so_id
+]]></selectStatusSo>
+<selectStatusCsr><![CDATA[
+select stat_min, csr_id
+, count(*) req_cnt, sum(success) success_cnt, count(*)-sum(success) fail_cnt
+, sum(success)*100.0/count(*) success_rate
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from (
+	select regexp_replace(substr(csr_date,1,16),'[-: ]','') stat_min, csr_id
+	, split(leads,'_')[0] css_ip
+	, case when split(leads,'_')[1]=='0' then 1 else 0 end success
+	from (
+		select csr_date, msg_mode, csr_id
+		, lead(concat(css_ip,'_',result),1) 
+			over (partition by sess_id,stb_mac,css_ip order by csr_date asc) leads
+		from tb_csr_s
+		where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+		and csr_date>='%s' and csr_date<'%s'
+	) A
+	where csr_date<'%s' and msg_mode='Request'
+	and leads is not null and instr(leads,'_')>1
+) T
+group by stat_min, csr_id
+]]></selectStatusCsr>
+<selectStatusCsrDummy><![CDATA[
+select stat_min, csr_id
+, count(*) req_cnt, sum(success) success_cnt, count(*)-sum(success) fail_cnt
+, sum(success)*100.0/count(*) success_rate
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from (
+	select regexp_replace(substr(csr_date,1,16),'[-: ]','') stat_min, csr_id
+	, css_ip
+	, 1 success
+	from tb_csr_s
+	where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+	and csr_date>='%s' and csr_date<'%s'
+	and csr_date<'%s' and msg_mode='Request'
+) T
+group by stat_min, csr_id
+]]></selectStatusCsrDummy>
+
+<!-- select csr Session -->
+
+<selectSessionCss><![CDATA[
+select stat_min
+, nvl(I.app_id,'999') app_id, nvl(I.so_id,'999') so_id, T.css_ip
+, avg_session, min_session, max_session
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from (
+	select regexp_replace(substr(csr_date,1,16),'[-: ]','') stat_min, css_ip
+	, avg(cast(users as int)) avg_session
+	, min(cast(users as int)) min_session
+	, max(cast(users as int)) max_session
+	from tb_csr_s
+	where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+	and csr_date>='%s' and csr_date<'%s'
+	and msg_mode='Request' and css_ip<>'' and sess_status='OPEN'
+	group by substr(csr_date,1,16), css_ip
+) T left outer join tb_cssinfo I on I.css_ip=T.css_ip
+]]></selectSessionCss>
+<selectSessionApp><![CDATA[
+select stat_min, app_id
+, avg(avg_session) avg_session, min(min_session) min_session, max(max_session) max_session
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_css_session_min
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and stat_min>='%s' and stat_min<'%s'
+group by stat_min, app_id
+]]></selectSessionApp>
+<selectSessionSo><![CDATA[
+select stat_min, app_id, so_id
+, avg(avg_session) avg_session, min(min_session) min_session, max(max_session) max_session
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_css_session_min
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and stat_min>='%s' and stat_min<'%s'
+group by stat_min, app_id, so_id
+]]></selectSessionSo>
+
+<!-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! -->
+
+<selectRouteCssM><![CDATA[
+select I.stat_min, I.app_id, I.so_id, I.css_ip
+, count(success) req_cnt, nvl(sum(success),'0') success_cnt, nvl(count(success)-sum(success),'0') fail_cnt
+, nvl(sum(success)*100.0/count(success),'0') success_rate
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(I.stat_min,1,8) dt, substr(I.stat_min,9,2) hh
+from %s I left outer join (
+           select regexp_replace(substr(csr_date,1,16),'[- :]','') stat_min
+           , split(leads,'_')[0] css_ip
+           , case when split(leads,'_')[1]=='0' then 1 else 0 end success
+           from (
+                     select csr_date, msg_mode
+                     , lead(concat(css_ip,'_',result),1) 
+                                over (partition by sess_id,stb_mac,stb_ip order by csr_date asc) leads
+                     from tb_csr_r
+                     where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+                     and csr_date>='%s' and csr_date<'%s'
+           ) A
+           where csr_date<'%s' and msg_mode='Request'
+           and leads is not null and instr(leads,'_')>1
+) T on T.css_ip=I.css_ip and T.stat_min=I.stat_min 
+group by I.stat_min, I.app_id, I.so_id, I.css_ip
+]]></selectRouteCssM>
+<selectRouteSoM><![CDATA[
+select stat_min
+, app_id, so_id
+, sum(req_cnt) req_cnt, sum(success_cnt) success_cnt, sum(fail_cnt) fail_cnt
+, nvl(sum(success_cnt)*100.0/sum(req_cnt), '0') success_rate
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_css_route_min 
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and stat_min>='%s' and stat_min<'%s'
+group by stat_min, app_id, so_id
+]]></selectRouteSoM>
+<selectRouteAppM><![CDATA[
+select stat_min, app_id
+, sum(req_cnt) req_cnt, sum(success_cnt) success_cnt, sum(fail_cnt) fail_cnt
+, nvl(sum(success_cnt)*100.0/sum(req_cnt), '0') success_rate
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_css_route_min 
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and stat_min>='%s' and stat_min<'%s'
+group by stat_min, app_id
+]]></selectRouteAppM>
+<selectRouteCsrM><![CDATA[
+select I.stat_min, I.csr_id
+, count(success) req_cnt, nvl(sum(success),'0') success_cnt, nvl(count(success)-sum(success),'0') fail_cnt
+, nvl(sum(success)*100.0/count(success),'0') success_rate
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(I.stat_min,1,8) dt, substr(I.stat_min,9,2) hh
+from (
+  select regexp_replace(substr(csr_date,1,16),'[-: ]','') stat_min, csr_id, csr_port
+  , split(leads,'_')[0] css_ip
+  , case when split(leads,'_')[1]=='0' then 1 else 0 end success
+  from (
+    select csr_date, msg_mode, csr_id, csr_port
+    , lead(concat(css_ip,'_',result),1) 
+    over (partition by sess_id,stb_mac,stb_ip order by csr_date asc) leads
+    from tb_csr_r
+    where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+    and csr_date>='%s' and csr_date<'%s'
+  ) A
+  where csr_date<'%s' and msg_mode='Request'
+  and leads is not null and instr(leads,'_')>1
+) T right outer join %s I on I.host_id=T.csr_id and I.csr_port=T.csr_port and T.stat_min=I.stat_min
+group by I.stat_min, I.csr_id
+]]></selectRouteCsrM>
+<!-- csr_host, csr_port, csr_sess -->
+<!-- sess_id,stb_mac,css_ip -->
+<selectStatusCssM><![CDATA[
+select I.stat_min, I.app_id, I.so_id, I.css_ip
+, count(success) req_cnt, nvl(sum(success),'0') success_cnt, nvl(count(success)-sum(success),'0') fail_cnt
+, nvl(sum(success)*100.0/count(success),'0') success_rate
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(I.stat_min,1,8) dt, substr(I.stat_min,9,2) hh
+from (
+  select regexp_replace(substr(csr_date,1,16),'[-: ]','') stat_min
+  , css_ip
+  , case when split(leads,'_')[1]=='0' then 1 else 0 end success
+  from (
+    select csr_date, msg_mode, css_ip
+    , lead(concat('_',result),1) 
+      over (partition by csr_host, csr_port, csr_sess order by csr_date asc) leads
+    from tb_csr_s
+    where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+    and csr_date>='%s' and csr_date<'%s'
+  ) A
+  where csr_date<'%s' and msg_mode='Request'
+  and leads is not null and instr(leads,'_')>0
+) T right outer join %s I on I.css_ip=T.css_ip and T.stat_min=I.stat_min
+group by I.stat_min, I.app_id, I.so_id, I.css_ip
+]]></selectStatusCssM>
+<selectStatusAppM><![CDATA[
+select stat_min, app_id
+, sum(req_cnt) req_cnt, sum(success_cnt) success_cnt, sum(fail_cnt) fail_cnt
+, nvl(sum(success_cnt)*100.0/sum(req_cnt), '0') sucess_rate
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_css_status_min
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and stat_min>='%s' and stat_min<'%s'
+group by stat_min, app_id
+]]></selectStatusAppM>
+<selectStatusSoM><![CDATA[
+select stat_min, app_id, so_id
+, sum(req_cnt) req_cnt, sum(success_cnt) success_cnt, sum(fail_cnt) fail_cnt
+, nvl(sum(success_cnt)*100.0/sum(req_cnt), '0') sucess_rate
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_css_status_min
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and stat_min>='%s' and stat_min<'%s'
+group by stat_min, app_id, so_id
+]]></selectStatusSoM>
+<selectStatusCsrM><![CDATA[
+select I.stat_min, I.csr_id
+, count(success) req_cnt, nvl(sum(success),'0') success_cnt, nvl(count(success)-sum(success),'0') fail_cnt
+, nvl(sum(success)*100.0/count(success),'0') success_rate
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(I.stat_min,1,8) dt, substr(I.stat_min,9,2) hh
+from (
+  select regexp_replace(substr(csr_date,1,16),'[-: ]','') stat_min, csr_host, csr_port
+  , css_ip
+  , case when split(leads,'_')[1]=='0' then 1 else 0 end success
+  from (
+    select csr_date, msg_mode, csr_host, csr_port, css_ip
+    , lead(concat(css_ip,'_',result),1) 
+    over (partition by csr_host, csr_port, csr_sess order by csr_date asc) leads
+    from tb_csr_s
+    where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+    and csr_date>='%s' and csr_date<'%s'
+  ) A
+  where csr_date<'%s' and msg_mode='Request'
+  and leads is not null and instr(leads,'_')>0
+) T right outer join %s I on I.host_id=T.csr_host and I.csr_port=T.csr_port and T.stat_min=I.stat_min
+group by I.stat_min, I.csr_id
+]]></selectStatusCsrM>
+
+<selectSessionCssM><![CDATA[
+select I.stat_min, I.app_id, I.so_id, I.css_ip
+, nvl(avg_session,'0') avg_session, nvl(min_session,'0') min_session, nvl(max_session,'0') max_session
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(I.stat_min,1,8) dt, substr(I.stat_min,9,2) hh
+from (
+  select regexp_replace(substr(csr_date,1,16),'[-: ]','') stat_min, css_ip
+  , avg(cast(users as int)) avg_session
+  , min(cast(users as int)) min_session
+  , max(cast(users as int)) max_session
+  from tb_csr_s
+  where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+  and csr_date>='%s' and csr_date<'%s'
+  and msg_mode='Request' and css_ip<>'' and sess_status='OPEN'
+  group by substr(csr_date,1,16), css_ip
+) T right outer join cssinfo_csr_session I on I.css_ip=T.css_ip and I.stat_min=T.stat_min
+]]></selectSessionCssM>
+<selectSessionAppM><![CDATA[
+select stat_min, app_id
+, avg(avg_session) avg_session, min(min_session) min_session, max(max_session) max_session
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_css_session_min
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and stat_min>='%s' and stat_min<'%s'
+group by stat_min, app_id
+]]></selectSessionAppM>
+<selectSessionSoM><![CDATA[
+select stat_min, app_id, so_id
+, avg(avg_session) avg_session, min(min_session) min_session, max(max_session) max_session
+, concat(from_unixtime(unix_timestamp(),"yyyy-MM-dd'T'HH:mm:ss"),'+09:00') chg_date
+, substr(stat_min,1,8) dt, substr(stat_min,9,2) hh
+from est_css_session_min
+where ((dt='%s' and hh='%s') or (dt='%s' and hh='%s'))
+and stat_min>='%s' and stat_min<'%s'
+group by stat_min, app_id, so_id
+]]></selectSessionSoM>
+
+</csr>

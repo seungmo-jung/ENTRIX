@@ -397,7 +397,7 @@ public class StatCcuMultiJob extends BatchJob {
 					}
 				}
 			} catch(Exception e) {
-				logger.error("KeyRowToCssCcuFunc2", e);
+				logger.error("KeyRowToSoCcuFunc2", e);
 				throw new RuntimeException(e);
 			}
 			int pre = 0;
@@ -411,7 +411,7 @@ public class StatCcuMultiJob extends BatchJob {
 				}
 			}
 			Ccu ccu = new Ccu(appid, soid, mins);
-			return new Tuple2<String, Ccu>(soid, ccu);
+			return new Tuple2<String, Ccu>(appid+soid, ccu);
 		}
 	}
 	public static class KeyRowToAppCcuFunc2
